@@ -1,0 +1,17 @@
+name: Pr Github Actions
+
+on:
+  pull_request:   # körs när någon öppnar eller uppdaterar en pull request
+    branches:
+      - main 
+      - Development
+
+jobs:
+  say-hello:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Print hello
+        run: echo "hellow world"
