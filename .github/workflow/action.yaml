@@ -1,17 +1,28 @@
-name: Pr Github Actions
+name: PR Github Actions
 
 on:
-  pull_request:   # körs när någon öppnar eller uppdaterar en pull request
+  pull_request:
     branches:
-      - main 
+      - main
       - Development
 
 jobs:
   say-hello:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest   # ubuntu är snabbare än windows
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18   # eller 20 om du vill matcha din Dockerfile
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint code
+        run: npm run lint
 
       - name: Print hello
         run: echo "hellow world"
