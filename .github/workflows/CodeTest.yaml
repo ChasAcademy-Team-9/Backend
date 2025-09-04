@@ -1,4 +1,4 @@
-name: Pr Github Actions
+name: Code tester
 
 on:
   pull_request:   # körs när någon öppnar eller uppdaterar en pull request
