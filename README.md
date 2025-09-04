@@ -71,6 +71,10 @@ The prototype backend focuses on:
 
 ---
 
+## Branch/Enviroment setup
+We are using a mix of gitflow and github flow. We have a main < Development < Feature setup for the moment
+with multiple people having to accept the PR's and review them before we can merge. 
+
 ## Installation & Setup
 
 1. **Clone repository**  
