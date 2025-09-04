@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "name": "ditt-projekt",
+  "version": "1.0.0",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  }
+}
