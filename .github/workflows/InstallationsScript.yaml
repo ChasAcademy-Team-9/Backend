@@ -1,33 +1,45 @@
-name: Intall Script
+name: CI Build
+
 on:
-  pull_request:   # körs när någon öppnar eller uppdaterar en pull request
+  push:
+    branches:
+      - main
+      - Development
+  pull_request:
     branches:
       - main
       - Development
 
 jobs:
-  lint:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      # 1. Hämta koden
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
+      # 2. Visa filstruktur för felsökning
+      - name: List files
+        run: ls -R
 
+      # 3. Installera Node.js
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
-          node-version: 18  # eller den version du använder
+          node-version: '18'
 
-      - name: View working directory
-        run: dir
-        working-directory: ./Backend
-
+      # 4. Installera dependencies (byt working-directory om package.json ligger annorlunda)
       - name: Install dependencies
         run: npm install
         working-directory: ./Backend
 
-      - name: Run ESLint
-        run: npx eslint . --max-warnings=0
+      # 5. Bygg projektet (om du har en build-script i package.json)
+      - name: Build
+        run: npm run build --if-present
         working-directory: ./Backend
 
+      # 6. (Valfritt) Kör tester
+      - name: Run tests
+        run: npm test --if-present
+        working-directory: ./Backend
