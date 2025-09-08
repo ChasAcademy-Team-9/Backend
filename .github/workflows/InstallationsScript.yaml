@@ -20,14 +20,14 @@ jobs:
           node-version: 18  # eller den version du använder
 
       - name: View working directory
-        run: ls
+        run: dir
         working-directory: ./Backend
 
       - name: Install dependencies
         run: npm install
-        working-directory: ./Backend
+        working-directory: C:\Chas\SUVx24\Project Team 9\package.json
 
       - name: Run ESLint
         run: npx eslint . --max-warnings=0
-        working-directory: ./Backend
+        working-directory: C:\Chas\SUVx24\Project Team 9\package.json
 
