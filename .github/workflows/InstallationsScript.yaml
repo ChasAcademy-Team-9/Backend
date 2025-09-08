@@ -15,31 +15,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Hämta koden
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2. Visa filstruktur för felsökning
       - name: List files
         run: ls -R
 
-      # 3. Installera Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      # 4. Installera dependencies (byt working-directory om package.json ligger annorlunda)
       - name: Install dependencies
         run: npm install
-        working-directory: ./Backend
+        working-directory: .
 
-      # 5. Bygg projektet (om du har en build-script i package.json)
       - name: Build
         run: npm run build --if-present
-        working-directory: ./Backend
+        working-directory: .
 
-      # 6. (Valfritt) Kör tester
       - name: Run tests
         run: npm test --if-present
-        working-directory: ./Backend
+        working-directory: .
