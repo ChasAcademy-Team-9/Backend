@@ -1,17 +1,28 @@
-name: Default installation script
+name: Lint & Test
 
 on:
   pull_request:   # körs när någon öppnar eller uppdaterar en pull request
     branches:
-      - main 
+      - main
       - Development
 
 jobs:
-  say-hello:
+  lint:
     runs-on: windows-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Npm
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18  # eller den version du använder
+
+      - name: Install dependencies
         run: npm install
+        working-directory: Backend
+
+      - name: Run ESLint
+        run: npx eslint . --max-warnings=0
+        working-directory: Backend
