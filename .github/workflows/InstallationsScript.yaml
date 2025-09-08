@@ -1,5 +1,4 @@
-name: Lint & Test
-
+name: Intall Script
 on:
   pull_request:   # körs när någon öppnar eller uppdaterar en pull request
     branches:
@@ -8,7 +7,7 @@ on:
 
 jobs:
   lint:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
