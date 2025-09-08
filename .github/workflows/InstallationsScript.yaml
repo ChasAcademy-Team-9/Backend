@@ -1,29 +1,39 @@
-name: Intall Script
+name: CI Build
+
 on:
-  pull_request:   # körs när någon öppnar eller uppdaterar en pull request
+  push:
+    branches:
+      - main
+      - Development
+  pull_request:
     branches:
       - main
       - Development
 
 jobs:
-  lint:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
+      - name: List files
+        run: ls -R
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
-          node-version: 18  # eller den version du använder
+          node-version: '18'
 
       - name: Install dependencies
         run: npm install
-        working-directory: Backend
+        working-directory: .
 
-      - name: Run ESLint
-        run: npx eslint . --max-warnings=0
-        working-directory: Backend
+      - name: Build
+        run: npm run build --if-present
+        working-directory: .
 
+      - name: Run tests
+        run: npm test --if-present
+        working-directory: .
