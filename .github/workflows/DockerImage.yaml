@@ -1,0 +1,17 @@
+name: Docker Image
+
+on:
+  pull_request:   # körs när någon öppnar eller uppdaterar en pull request
+    branches:
+      - main 
+      - Development
+
+jobs:
+  say-hello:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Print docker script
+        run: echo "Here should docker script code go!"
