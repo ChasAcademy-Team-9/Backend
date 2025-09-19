@@ -75,6 +75,23 @@ The prototype backend focuses on:
 We are using a mix of gitflow and github flow. We have a main < Development < Feature setup for the moment
 with multiple people having to accept the PR's and review them before we can merge. 
 
+## 📝 Azure SQL Logging Module
+
+This repository includes a dedicated **Azure SQL logging solution** with automatic backup functionality:
+
+- **Location:** `azure-sql-logging/`
+- **Features:** Winston integration, Azure AD auth, automatic fallback to file backup
+- **Documentation:** See `azure-sql-logging/README.md` and `azure-sql-logging/SOLUTION.md`
+
+### Quick Start:
+```bash
+cd azure-sql-logging
+npm install
+cp .env.example .env
+# Configure your Azure SQL credentials in .env
+npm start
+```
+
 ## Installation & Setup
 
 1. **Clone repository**  
