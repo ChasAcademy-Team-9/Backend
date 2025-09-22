@@ -7,8 +7,8 @@ const config = {
     authentication: {
         type: 'azure-active-directory-password',
         options: {
-            userName: 'john.collinder@chasacademy.se',
-            password: 'Your Password here',
+            AZURE_SQL_USER=your-email@chasacademy.se,
+            AZURE_SQL_PASSWORD=your-password-here,
             clientId: '2fd908ad-0664-4344-b9be-cd3e8b574c38', // Azure CLI client ID
             tenantId: 'common'
         }
