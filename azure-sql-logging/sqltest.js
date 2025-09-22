@@ -1,18 +1,12 @@
 import sql from 'mssql';
 
+
 const config = {
     server: 'team9-server.database.windows.net',
     port: 1433,
     database: 'team9-database',
-    authentication: {
-        type: 'azure-active-directory-password',
-        options: {
-            userName: 'john.collinder@chasacademy.se',
-            password: '34xKM67LEHxqzpY',
-            clientId: '2fd908ad-0664-4344-b9be-cd3e8b574c38', // Azure CLI client ID
-            tenantId: 'common'
-        }
-    },
+    user: 'sqladmin',
+    password: 'ch@s@cademy123',
     options: {
         encrypt: true,
         enableArithAbort: true,
