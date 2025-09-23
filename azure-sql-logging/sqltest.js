@@ -5,8 +5,8 @@ const config = {
     server: 'team9-server.database.windows.net',
     port: 1433,
     database: 'team9-database',
-    user: 'sqladmin',
-    password: 'ch@s@cademy123',
+    user: '',
+    password: '',
     options: {
         encrypt: true,
         enableArithAbort: true,
