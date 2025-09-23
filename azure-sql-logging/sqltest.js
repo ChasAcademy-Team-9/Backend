@@ -1,7 +1,8 @@
 import sql from 'mssql';
+import loginConfig from './config/loginConfig.js';
+const sqlConfig = loginConfig
 
-
-const config = {
+/*const config = {
     server: 'team9-server.database.windows.net',
     port: 1433,
     database: 'team9-database',
@@ -12,7 +13,7 @@ const config = {
         enableArithAbort: true,
         trustServerCertificate: false
     }
-}
+}*/
 
 /*
     //Use Azure VM Managed Identity to connect to the SQL database
@@ -47,29 +48,43 @@ connectAndQuery();
 
 async function connectAndQuery() {
     try {
-        var poolConnection = await sql.connect(config);
+        var poolConnection = await sql.connect(sqlConfig);
 
         console.log("✅ Ansluten till Azure SQL Database!");
         console.log("🧪 Testar enkel query...");
 
         // Enkel test-query som alltid fungerar
         var resultSet = await poolConnection.request().query(`
-            SELECT 
-                GETDATE() as CurrentTime,
-                USER_NAME() as CurrentUser,
-                DB_NAME() as DatabaseName,
-                @@VERSION as SqlVersion
+           -- Drivers: first drop the old Password column
+            ALTER TABLE Drivers
+            DROP COLUMN Password;
+
+            -- Then add UserName + new Password
+            ALTER TABLE Drivers
+            ADD UserName VARCHAR(20) NOT NULL,
+                Password VARCHAR(20) NOT NULL;
+
+            -- Senders: add UserName + Password
+            ALTER TABLE Senders
+            ADD UserName VARCHAR(20) NOT NULL,
+                Password VARCHAR(20) NOT NULL;
+
+            -- Receivers: add UserName + Password
+            ALTER TABLE Receivers
+            ADD UserName VARCHAR(20) NOT NULL,
+                Password VARCHAR(20) NOT NULL;
+
         `);
 
-        console.log(`📊 ${resultSet.recordset.length} rows returned.`);
-
+        //console.log(`📊 ${resultSet.recordset.length} rows returned.`);
+        console.log(resultSet);
         // Visa resultatet
-        resultSet.recordset.forEach(row => {
-            console.log("🕐 Current Time:", row.CurrentTime);
-            console.log("👤 Current User:", row.CurrentUser);
-            console.log("🗃️ Database:", row.DatabaseName);
-            console.log("🖥️ SQL Version:", row.SqlVersion.substring(0, 50) + "...");
-        });
+        /* resultSet.recordset.forEach(row => {
+             console.log("🕐 Current Time:", row.CurrentTime);
+             console.log("👤 Current User:", row.CurrentUser);
+             console.log("🗃️ Database:", row.DatabaseName);
+             console.log("🖥️ SQL Version:", row.SqlVersion.substring(0, 50) + "...");
+         });*/
 
         // Testa om Logs-tabell finns
         console.log("\n🔍 Kontrollerar om Logs-tabell finns...");
