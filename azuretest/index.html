@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="sv">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Min Azure Webapp</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+
+        p {
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .azure-logo {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: #0078d4;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #005a9e;
+        }
+
+        .status {
+            margin-top: 30px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            color: #2e7d32;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="azure-logo">☁️</div>
+        <h1>Välkommen till din Azure Webapp!</h1>
+        <p>Din webbapplikation körs nu på Azure App Service. Detta är en enkel startsida som du kan bygga vidare på.</p>
+        <button class="btn" onclick="showMessage()">Klicka här!</button>
+        <div id="message" style="display: none;" class="status">
+            🎉 Grattis! Din webapp fungerar perfekt!
+        </div>
+    </div>
+
+    <script>
+        function showMessage() {
+            document.getElementById('message').style.display = 'block';
+        }
+
+        console.log('Azure App Service webapp körs!');
+        console.log('Nuvarande tid:', new Date().toLocaleString('sv-SE'));
+    </script>
+</body>
+
+</html>
