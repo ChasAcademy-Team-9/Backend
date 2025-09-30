@@ -1,13 +1,23 @@
 {
-  "type": "module",
-  "name": "ditt-projekt",
+  "name": "backend",
   "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "prepare": "husky"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "devDependencies": {
-    "husky": "^9.1.7"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChasAcademy-Team-9/Backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ChasAcademy-Team-9/Backend/issues"
+  },
+  "homepage": "https://github.com/ChasAcademy-Team-9/Backend#readme",
+  "dependencies": {
+    "express": "^5.1.0"
   }
 }
