@@ -2,6 +2,7 @@
 require('dotenv').config();
 const express = require("express");
 const sql = require("mssql");
+const { error } = require('winston');
 //const loginConfig = require("./config/loginConfig.js"); // er databas-konfiguration
 const app = express();
 
@@ -48,6 +49,7 @@ app.get("/", (req, res) => {
     message: "API körs!",
     status: "online",
     timestamp: new Date().toISOString(),
+    
   });
 });
 
@@ -77,6 +79,34 @@ app.get('/api/drivers', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch drivers', details: error.message });
     }
 });
+
+//Create User
+app.post('/api/drivers/', async (req, res) => {
+    try {
+        const { FirstName, LastName, UserName, Password } = req.body;
+
+        if (!FirstName || !LastName || !UserName || !Password) {
+            return res.status(400).json({ error: 'All fields required: FirstName, LastName, UserName, Password' });
+        }
+
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('FirstName', sql.NVarChar, FirstName)
+            .input('LastName', sql.NVarChar, LastName)
+            .input('UserName', sql.VarChar, UserName)
+            .input('Password', sql.VarChar, Password)
+            .query(`
+                INSERT INTO Drivers (FirstName, LastName, UserName, Password)
+                OUTPUT INSERTED.*
+                VALUES (@FirstName, @LastName, @UserName, @Password);
+            `);
+
+        res.status(201).json({ success: true, driver: result.recordset[0] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create driver', details: error.message });
+    }
+});
+
 
 // 404 hantering
 app.use((req, res) => {
