@@ -1,9 +1,24 @@
 // server.js
+require('dotenv').config();
 const express = require("express");
+const sql = require("mssql");
+//const loginConfig = require("./config/loginConfig.js"); // er databas-konfiguration
 const app = express();
 
 // VIKTIGT: Azure tilldelar porten via miljövariabeln PORT
 const port = process.env.PORT || 8080;
+
+const loginConfig = {
+  user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    server: process.env.DB_SERVER,
+    database: process.env.DB_NAME,
+    options: {
+        encrypt: true,
+        enableArithAbort: true,
+        trustServerCertificate: false
+    },
+};
 
 // Middleware
 app.use(express.json());
@@ -17,7 +32,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// Root endpoint - VIKTIGT för Azure
+// Singleton SQL pool
+let pool;
+const getPool = async () => {
+  if (!pool) {
+    pool = await sql.connect(loginConfig);
+    console.log("✅ Ansluten till Azure SQL Database!");
+  }
+  return pool;
+};
+
+// Root endpoint
 app.get("/", (req, res) => {
   res.json({
     message: "API körs!",
@@ -31,31 +56,26 @@ app.get("/health", (req, res) => {
   res.json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
-// API endpoints
-app.get("/api/hello", (req, res) => {
-  res.json({ message: "Hej från Azure App Service!" });
+// API: Hämta alla rader i TestTabel
+app.get("/api/items", async (req, res) => {
+  try {
+        const pool = await getPool();
+        const result = await pool.request()
+            .query('SELECT * FROM TestTable');
+        res.json({ success: true, drivers: result.recordset });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch drivers', details: error.message });
+    }
 });
-
-app.get("/api/items", (req, res) => {
-  const items = [
-    { id: 1, name: "Item 1" },
-    { id: 2, name: "Item 2" },
-    { id: 3, name: "Item 3" },
-  ];
-  res.json(items);
-});
-
-app.post("/api/items", (req, res) => {
-  const newItem = req.body;
-  res.status(201).json({
-    message: "Item skapad",
-    item: newItem,
-  });
-});
-
-app.get("/api/items/:id", (req, res) => {
-  const id = req.params.id;
-  res.json({ id, name: `Item ${id}` });
+app.get('/api/drivers', async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request()
+            .query('SELECT DriverID, FirstName, LastName, UserName FROM Drivers');
+        res.json({ success: true, drivers: result.recordset });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch drivers', details: error.message });
+    }
 });
 
 // 404 hantering
