@@ -53,35 +53,9 @@ app.get("/", (req, res) => {
   });
 });
 
-// Hälsokontroll
-app.get("/health", (req, res) => {
-  res.json({ status: "healthy", timestamp: new Date().toISOString() });
-});
-
-// API: Hämta alla rader i TestTabel
-app.get("/api/items", async (req, res) => {
-  try {
-    const pool = await getPool();
-    const result = await pool.request()
-      .query('SELECT * FROM TestTable');
-    res.json({ success: true, drivers: result.recordset });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch drivers', details: error.message });
-  }
-});
-app.get('/api/register', async (req, res) => {
-  try {
-    const pool = await getPool();
-    const result = await pool.request()
-      .query('SELECT DriverID, FirstName, LastName, UserName FROM Drivers');
-    res.json({ success: true, drivers: result.recordset });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch drivers', details: error.message });
-  }
-});
 
 //Create User
-app.post('/api/register/', async (req, res) => {
+/*app.post('/api/register/', async (req, res) => {
   try {
     const { TableName, FirstName, LastName, UserName, Password } = req.body;
 
@@ -105,7 +79,167 @@ app.post('/api/register/', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to create driver', details: error.message });
   }
+});*/
+
+app.post('/api/register', async (req, res) => {
+  try {
+    const { TableName, FirstName, LastName, UserName, Password, Adress } = req.body;
+
+    if (!TableName || !FirstName || !LastName || !UserName || !Password) {
+      return res.status(400).json({
+        error: 'Missing required fields: TableName, FirstName, LastName, UserName, Password'
+      });
+    }
+
+    const pool = await getPool();
+    const request = pool.request()
+      .input('FirstName', sql.NVarChar, FirstName)
+      .input('LastName', sql.NVarChar, LastName)
+      .input('UserName', sql.VarChar, UserName)
+      .input('Password', sql.VarChar, Password);
+
+    let query;
+
+    //  Add Adress only for Receivers
+    if (TableName === 'Receivers') {
+      if (!Adress) {
+        return res.status(400).json({ error: 'Adress is required for Receivers' });
+      }
+
+      request.input('Adress', sql.NVarChar, Adress);
+
+      query = `
+        INSERT INTO Receivers (FirstName, LastName, UserName, Password, Adress)
+        OUTPUT INSERTED.*
+        VALUES (@FirstName, @LastName, @UserName, @Password, @Adress);
+      `;
+    } else {
+      query = `
+        INSERT INTO ${TableName} (FirstName, LastName, UserName, Password)
+        OUTPUT INSERTED.*
+        VALUES (@FirstName, @LastName, @UserName, @Password);
+      `;
+    }
+
+    const result = await request.query(query);
+
+    res.status(201).json({
+      success: true,
+      user: result.recordset[0],
+      table: TableName
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to create user',
+      details: error.message
+    });
+  }
 });
+
+// ========== GET /api/register ==========
+// Query by Id or UserName (optional). If none given, list all in the table.
+app.get('/api/register', async (req, res) => {
+  try {
+    const { TableName, Id, UserName } = req.query;
+
+    if (!TableName) {
+      return res.status(400).json({ error: 'Missing required query param: TableName' });
+    }
+
+    const pool = await getPool();
+    const request = pool.request();
+
+    let where = '';
+    if (Id) {
+      request.input('Id', sql.Int, Number(Id));
+      where = 'WHERE Id = @Id';
+    } else if (UserName) {
+      request.input('UserName', sql.VarChar, UserName);
+      where = 'WHERE UserName = @UserName';
+    }
+
+    const query = `
+      SELECT *
+      FROM ${TableName}
+      ${where}
+      ORDER BY Id DESC;
+    `;
+
+    const result = await request.query(query);
+    res.json({ success: true, table: TableName, count: result.recordset.length, data: result.recordset });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch', details: error.message });
+  }
+});
+
+
+
+// ========== PUT /api/register ==========
+// Update by Id (preferred) or UserName; updates only provided fields.
+// For Receivers you can also update Adress.
+app.put('/api/register', async (req, res) => {
+  try {
+    const {
+      TableName, Id, UserName,           // identify target (Id preferred)
+      FirstName, LastName, NewUserName,  // updatable fields
+      Password, Adress                   // Receivers-only Adress
+    } = req.body;
+
+    if (!TableName) {
+      return res.status(400).json({ error: 'Missing required field: TableName' });
+    }
+    if (!Id && !UserName) {
+      return res.status(400).json({ error: 'Provide Id or UserName to identify the record' });
+    }
+
+    const pool = await getPool();
+    const request = pool.request();
+
+    // WHERE clause
+    let where = '';
+    if (Id) {
+      request.input('Id', sql.Int, Number(Id));
+      where = 'WHERE Id = @Id';
+    } else {
+      request.input('UserName', sql.VarChar, UserName);
+      where = 'WHERE UserName = @UserName';
+    }
+
+    // Build SET list only from provided fields
+    const sets = [];
+    if (FirstName !== undefined) { request.input('FirstName', sql.NVarChar, FirstName); sets.push('FirstName = @FirstName'); }
+    if (LastName !== undefined) { request.input('LastName', sql.NVarChar, LastName); sets.push('LastName = @LastName'); }
+    if (NewUserName !== undefined) { request.input('NewUserName', sql.VarChar, NewUserName); sets.push('UserName = @NewUserName'); }
+    if (Password !== undefined) { request.input('Password', sql.VarChar, Password); sets.push('Password = @Password'); }
+
+    if (TableName === 'Receivers' && Adress !== undefined) {
+      request.input('Adress', sql.NVarChar, Adress);
+      sets.push('Adress = @Adress');
+    }
+
+    if (sets.length === 0) {
+      return res.status(400).json({ error: 'No updatable fields provided' });
+    }
+
+    const query = `
+      UPDATE ${TableName}
+      SET ${sets.join(', ')}
+      ${where};
+
+      SELECT TOP 1 * FROM ${TableName} ${where};
+    `;
+
+    const result = await request.query(query);
+    const updated = result.recordset[0];
+    if (!updated) return res.status(404).json({ error: 'Record not found' });
+
+    res.json({ success: true, table: TableName, user: updated });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update', details: error.message });
+  }
+});
+
 
 
 // 404 hantering
