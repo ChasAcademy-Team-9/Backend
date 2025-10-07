@@ -20,6 +20,38 @@ const loginConfig = {
     trustServerCertificate: false
   },
 };
+let TableName
+let TableId
+
+function TableExist(role){
+    switch(role){
+      case "driver":
+        TableName = "Drivers"
+        TableId = "DriverID"
+        break;
+      case "receiver":
+        TableName = "Receivers"
+        TableId = "ReceiverID"
+      break;
+      case "sender":
+        TableName = "Senders"
+        TableId = "SenderID"
+      break;
+      default: 
+        return false
+    }
+    return true
+}
+async function UserExist(UserName){
+  const pool = await getPool();
+
+    // Kolla om användarnamnet redan finns
+    const existingUser = await pool.request()
+      .input('UserName', sql.VarChar, UserName)
+      .query(`SELECT * FROM ${TableName} WHERE UserName = @UserName`);
+    
+    return existingUser.recordset.length > 0;
+}
 
 // Middleware
 app.use(express.json());
@@ -83,57 +115,56 @@ app.get("/", (req, res) => {
 
 app.post('/api/register', async (req, res) => {
   try {
-    const { TableName, FirstName, LastName, UserName, Password, Adress } = req.body;
+    const { Role, FirstName, LastName, UserName, Password, Adress } = req.body;
 
-    if (!TableName || !FirstName || !LastName || !UserName || !Password) {
-      return res.status(400).json({
-        error: 'Missing required fields: TableName, FirstName, LastName, UserName, Password'
-      });
+    //Check every input is requered
+    if (!Role || !FirstName || !LastName || !UserName || !Password) {
+      return res.status(400).json({ success: false, error: 'All fields required: FirstName, LastName, UserName, Password'});
     }
 
-    const pool = await getPool();
-    const request = pool.request()
+    //Check if the role have an existing table
+    if(!TableExist(Role)){
+      return res.status(400).json({ success: false, error: 'Role does not exist'});
+    }
+
+    //Check If user exist
+    if(await UserExist(UserName)){
+      return res.status(409).json({ success: false, error: 'User alredy exist'});
+    }
+
+    if(TableName != "Receivers"){
+      const pool = await getPool();
+    const result = await pool.request()
       .input('FirstName', sql.NVarChar, FirstName)
       .input('LastName', sql.NVarChar, LastName)
       .input('UserName', sql.VarChar, UserName)
-      .input('Password', sql.VarChar, Password);
+      .input('Password', sql.VarChar, Password)
+      .query(`
+                INSERT INTO ${TableName} (FirstName, LastName, UserName, Password)
+                OUTPUT INSERTED.*
+                VALUES (@FirstName, @LastName, @UserName, @Password);
+            `);
 
-    let query;
-
-    //  Add Adress only for Receivers
-    if (TableName === 'Receivers') {
-      if (!Adress) {
-        return res.status(400).json({ error: 'Adress is required for Receivers' });
-      }
-
-      request.input('Adress', sql.NVarChar, Adress);
-
-      query = `
-        INSERT INTO Receivers (FirstName, LastName, UserName, Password, Adress)
-        OUTPUT INSERTED.*
-        VALUES (@FirstName, @LastName, @UserName, @Password, @Adress);
-      `;
-    } else {
-      query = `
-        INSERT INTO ${TableName} (FirstName, LastName, UserName, Password)
-        OUTPUT INSERTED.*
-        VALUES (@FirstName, @LastName, @UserName, @Password);
-      `;
+    return res.status(201).json({ success: true, driver: result.recordset});
     }
-
-    const result = await request.query(query);
-
-    res.status(201).json({
-      success: true,
-      user: result.recordset[0],
-      table: TableName
-    });
-
+    if(!Adress){
+      return res.status(400).json({ success: false, error: 'A adress is requred'});
+    }
+    const pool = await getPool();
+    const result = await pool.request()
+      .input('FirstName', sql.NVarChar, FirstName)
+      .input('LastName', sql.NVarChar, LastName)
+      .input('Adress', sql.NVarChar, Adress)
+      .input('UserName', sql.VarChar, UserName)
+      .input('Password', sql.VarChar, Password)
+      .query(`
+                INSERT INTO ${TableName} (FirstName, LastName, Adress, UserName, Password)
+                OUTPUT INSERTED.*
+                VALUES (@FirstName, @LastName, @Adress, @UserName, @Password);
+            `);
+    res.status(201).json({ success: true, driver: result.recordset });
   } catch (error) {
-    res.status(500).json({
-      error: 'Failed to create user',
-      details: error.message
-    });
+    res.status(500).json({ error: 'Failed to create a user', details: error.message });
   }
 });
 
@@ -141,35 +172,35 @@ app.post('/api/register', async (req, res) => {
 // Query by Id or UserName (optional). If none given, list all in the table.
 app.get('/api/register', async (req, res) => {
   try {
-    const { TableName, Id, UserName } = req.query;
-
-    if (!TableName) {
-      return res.status(400).json({ error: 'Missing required query param: TableName' });
-    }
-
+    const { Role, UserName, Id} = req.body;
     const pool = await getPool();
-    const request = pool.request();
-
-    let where = '';
-    if (Id) {
-      request.input('Id', sql.Int, Number(Id));
-      where = 'WHERE Id = @Id';
-    } else if (UserName) {
-      request.input('UserName', sql.VarChar, UserName);
-      where = 'WHERE UserName = @UserName';
+    if(!Role){
+      return res.status(500).json({ errorMessage: 'You need to chose in a role for driver, receiver, sender' });
     }
-
-    const query = `
-      SELECT *
-      FROM ${TableName}
-      ${where}
-      ORDER BY Id DESC;
-    `;
-
-    const result = await request.query(query);
-    res.json({ success: true, table: TableName, count: result.recordset.length, data: result.recordset });
+    checkTable(Role)
+    if(UserName != undefined){
+            const result = await pool.request()
+      .query(`
+                SELECT TOP (10) * FROM ${TableName}
+                WHERE UserName='${UserName}'
+            `);
+      return res.status(201).json({ success: true, driver: result.recordset });
+    }
+    if(Id != undefined){
+      const result = await pool.request()
+      .query(`
+                SELECT TOP (10) * FROM ${TableName}
+                WHERE ${TableId}=${Id}
+            `);
+    return res.status(201).json({ success: true, driver: result.recordset });
+    }
+    const result = await pool.request()
+      .query(`
+                SELECT TOP (100) * FROM ${TableName}
+            `);      
+    res.status(201).json({ success: true, driver: result.recordset });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch', details: error.message });
+    res.status(500).json({ error: 'Failed to create driver', details: error.message });
   }
 });
 
