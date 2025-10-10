@@ -168,16 +168,73 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+app.delete('/api/register', async (req, res) => {
+  try {
+    const { Role, UserName, Id } = req.body;
+
+    // 1️⃣ Kontrollera roll/tabell
+    if (!TableExist(Role)) {
+      return res.status(400).json({
+        errorMessage: 'You need to choose a valid role: driver, receiver, or sender.'
+      });
+    }
+
+    // 2️⃣ Kontrollera att något identifierande värde finns
+    if (!UserName && !Id) {
+      return res.status(400).json({
+        errorMessage: 'You need to specify an identifier: UserName or Id.'
+      });
+    }
+
+    // 3️⃣ Kolla att användaren finns
+    if (!(await UserExist(UserName))) {
+      return res.status(404).json({
+        errorMessage: 'Cannot find an existing account.'
+      });
+    }
+
+    // 4️⃣ Skapa databasanslutning
+    const pool = await getPool();
+    let result;
+
+    // 5️⃣ Ta bort med ID om det finns
+    if (Id != undefined) {
+      result = await pool.request()
+        .input('Id', sql.Int, Id)
+        .query(`DELETE FROM ${TableName} WHERE ${TableId}=@Id`);
+    } else {
+      // 6️⃣ Ta bort med användarnamn (OBS: måste vara parameteriserad)
+      result = await pool.request()
+        .input('UserName', sql.VarChar, UserName)
+        .query(`DELETE FROM ${TableName} WHERE UserName=@UserName`);
+    }
+
+    // 7️⃣ Om ingen rad togs bort → användaren fanns inte
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ errorMessage: 'User not found.' });
+    }
+
+    // 8️⃣ Klart
+    res.status(200).json({
+      success: true,
+      message: `User deleted successfully from ${TableName}.`
+    });
+
+  } catch (err) {
+    console.error('DELETE /api/register error:', err);
+    res.status(500).json({ errorMessage: 'Internal server error.' });
+  }
+});
+
+
 // ========== GET /api/register ==========
 // Query by Id or UserName (optional). If none given, list all in the table.
 app.get('/api/register', async (req, res) => {
   try {
     const { Role, UserName, Id} = req.body;
-    const pool = await getPool();
-    if(!Role){
+    if(! await checkTable(Role)){
       return res.status(500).json({ errorMessage: 'You need to chose in a role for driver, receiver, sender' });
     }
-    checkTable(Role)
     if(UserName != undefined){
             const result = await pool.request()
       .query(`
@@ -187,6 +244,7 @@ app.get('/api/register', async (req, res) => {
       return res.status(201).json({ success: true, driver: result.recordset });
     }
     if(Id != undefined){
+      const pool = await getPool();
       const result = await pool.request()
       .query(`
                 SELECT TOP (10) * FROM ${TableName}
