@@ -228,37 +228,54 @@ app.delete('/api/register', async (req, res) => {
 
 
 // ========== GET /api/register ==========
-// Query by Id or UserName (optional). If none given, list all in the table.
-app.get('/api/register', async (req, res) => {
+app.get('/api/register/drivers', async (req, res) => {
   try {
-    const { Role, UserName, Id} = req.body;
-    if(! await checkTable(Role)){
-      return res.status(500).json({ errorMessage: 'You need to chose in a role for driver, receiver, sender' });
-    }
-    if(UserName != undefined){
-            const result = await pool.request()
-      .query(`
-                SELECT TOP (10) * FROM ${TableName}
-                WHERE UserName='${UserName}'
-            `);
-      return res.status(201).json({ success: true, driver: result.recordset });
-    }
-    if(Id != undefined){
-      const pool = await getPool();
-      const result = await pool.request()
-      .query(`
-                SELECT TOP (10) * FROM ${TableName}
-                WHERE ${TableId}=${Id}
-            `);
-    return res.status(201).json({ success: true, driver: result.recordset });
-    }
+    const pool = await getPool();
     const result = await pool.request()
-      .query(`
-                SELECT TOP (100) * FROM ${TableName}
-            `);      
-    res.status(201).json({ success: true, driver: result.recordset });
+      .query(`SELECT TOP (100) * FROM Drivers`);
+
+    res.status(200).json({ success: true, drivers: result.recordset });
+
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create driver', details: error.message });
+    console.error('GET /api/register/drivers error:', error);
+    res.status(500).json({
+      error: 'Failed to find any data',
+      details: error.message
+    });
+  }
+});
+
+app.get('/api/register/senders', async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.request()
+      .query(`SELECT TOP (100) * FROM Senders`);
+
+    res.status(200).json({ success: true, drivers: result.recordset });
+
+  } catch (error) {
+    console.error('GET /api/register/senders error:', error);
+    res.status(500).json({
+      error: 'Failed to find any data',
+      details: error.message
+    });
+  }
+});
+
+app.get('/api/register/receivers', async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.request()
+      .query(`SELECT TOP (100) * FROM Receivers`);
+
+    res.status(200).json({ success: true, drivers: result.recordset });
+
+  } catch (error) {
+    console.error('GET /api/register/receivers error:', error);
+    res.status(500).json({
+      error: 'Failed to find any data',
+      details: error.message
+    });
   }
 });
 
