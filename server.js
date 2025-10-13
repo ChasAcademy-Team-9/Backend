@@ -1,5 +1,6 @@
 // server.js
 require('dotenv').config();
+const jwt = require('jsonwebtoken')
 const express = require("express");
 const sql = require("mssql");
 const { error } = require('winston');
@@ -226,6 +227,36 @@ app.delete('/api/register', async (req, res) => {
   }
 });
 
+//App login
+app.post('/api/login', async (req, res) => {
+  
+const{ Role, UserName, Password} = req.body
+  try {
+if(!Role || !UserName || !Password){
+      return res.status(400).json({message: "You need to put Role, UserName, Password"})
+    }
+    if(!TableExist(Role)){
+      return res.status(400).json({message: "Role does not exist"})
+    }
+    if(!(await UserExist(UserName))){
+      return res.status(400).json({message: "User does not exist"})
+    }
+    
+    const result = await pool.request()
+      .input('UserName', sql.VarChar, UserName)
+      .input('Password', sql.VarChar, Password)
+      .query(`SELECT * FROM ${TableName} WHERE UserName = @UserName`);
+
+      if(!(result.recordset[0].Password === Password)){
+        res.status(401).json({message: "Invalid password"})
+      }
+      const token = jwt.sign({ id: UserName }, process.env.JWT_SECRET, { expiresIn: '24h' });
+        res.status(200).json({ token: token, message: "You are logged in" });
+  } catch (error) {
+    console.error(error)
+  
+  }
+});
 
 // ========== GET /api/register ==========
 app.get('/api/register/drivers', async (req, res) => {
@@ -346,6 +377,60 @@ app.put('/api/register', async (req, res) => {
   }
 });
 
+app.post('/api/packages', async (req, res) => {
+    try {
+        const { DriverID, SenderID, ReceiverID, PackageWidth, PackageHeight, PackageWeight, PackageDepth } = req.body;
+        if (!SenderID || !ReceiverID || !DriverID) {
+            return res.status(400).json({ error: 'DriverID, SenderID and ReceiverID are required' });
+        }
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('DriverID', sql.Int, DriverID)
+            .input('SenderID', sql.Int, SenderID)
+            .input('ReceiverID', sql.Int, ReceiverID)
+            .input('Registered', sql.DateTime2, new Date())
+            .input('PackageWidth', sql.Decimal(10, 2), PackageWidth || null)
+            .input('PackageHeight', sql.Decimal(10, 2), PackageHeight || null)
+            .input('PackageWeight', sql.Decimal(10, 2), PackageWeight || null)
+            .input('PackageDepth', sql.Decimal(10, 2), PackageDepth || null)
+            .query(`
+                INSERT INTO Packages (DriverID, SenderID, ReceiverID, Registered, PackageWidth, PackageHeight, PackageWeight, PackageDepth)
+                OUTPUT INSERTED.*
+                VALUES (@DriverID, @SenderID, @ReceiverID, @Registered, @PackageWidth, @PackageHeight, @PackageWeight, @PackageDepth)
+            `);
+        res.status(201).json({ success: true, package: result.recordset[0] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create package', details: error.message });
+    }
+});
+
+//Add sensordata
+app.post('/api/sensordata', async (req, res) => {
+    try {
+        const { PackageID, GPSLatitude, GPSLongitude, Temperature, Humidity , SensorTimeStamp} = req.body;
+        if (!PackageID) {
+            return res.status(400).json({ error: 'PackageID is required' });
+        }
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('PackageID', sql.Int, PackageID)
+            .input('GPSLatitude', sql.Decimal(9, 6), GPSLatitude || null)
+            .input('GPSLongitude', sql.Decimal(9, 6), GPSLongitude || null)
+            .input('Temperature', sql.Int, Temperature || null)
+            .input('Humidity', sql.Int, Humidity || null)
+            .input('SensorTimeStamp', sql.DateTime2, SensorTimeStamp)
+            .query(`
+                INSERT INTO dbo.SensorData (PackageID, GPSLatitude, GPSLongitude, Temperature, Humidity, SensorTimeStamp)
+                VALUES (@PackageID, @GPSLatitude, @GPSLongitude, @Temperature, @Humidity, @SensorTimeStamp);
+                SELECT SCOPE_IDENTITY() AS Id;
+            `);
+        res.status(201).json({ success: true, id: result.recordset[0].Id });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create sensor data', details: error.message });
+    }
+});
+
+
 
 
 // 404 hantering
@@ -361,6 +446,6 @@ app.use((err, req, res, next) => {
 
 // Starta servern
 app.listen(port, "0.0.0.0", () => {
-  console.log(`Server körs på port ${port}`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`Server körs på port ${port}`)
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`)
 });
