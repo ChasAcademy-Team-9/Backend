@@ -404,75 +404,61 @@ app.post('/api/packages', async (req, res) => {
     }
 });
 
-//Add sensordata
+
 app.post('/api/sensordata', async (req, res) => {
-    try {
-        const { PackageID, GPSLatitude, GPSLongitude, Temperature, Humidity , SensorTimeStamp} = req.body;
-        if (!PackageID) {
-            return res.status(400).json({ error: 'PackageID is required' });
-        }
-        const pool = await getPool();
-        const result = await pool.request()
-            .input('PackageID', sql.Int, PackageID)
-            .input('GPSLatitude', sql.Decimal(9, 6), GPSLatitude || null)
-            .input('GPSLongitude', sql.Decimal(9, 6), GPSLongitude || null)
-            .input('Temperature', sql.Int, Temperature || null)
-            .input('Humidity', sql.Int, Humidity || null)
-            .input('SensorTimeStamp', sql.DateTime2, SensorTimeStamp)
-            .query(`
-                INSERT INTO dbo.SensorData (PackageID, GPSLatitude, GPSLongitude, Temperature, Humidity, SensorTimeStamp)
-                VALUES (@PackageID, @GPSLatitude, @GPSLongitude, @Temperature, @Humidity, @SensorTimeStamp);
-                SELECT SCOPE_IDENTITY() AS Id;
-            `);
-        res.status(201).json({ success: true, id: result.recordset[0].Id });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to create sensor data', details: error.message });
-    }
-});
-
-app.post('/api/arduino', async (req, res) => {
-  const { arduinoID, packageID } = req.body;
-
   try {
-    if (!arduinoID || !packageID) {
-      return res.status(400).json({ error: 'arduinoID and packageID are required' });
+    let data = req.body;
+
+    // Om body inte är en array, gör om till array
+    if (!Array.isArray(data)) {
+      data = [data];
     }
-    console.log({message: 'funkar här'})
+
+    if (data.length === 0) {
+      return res.status(400).json({ error: 'Empty data array or invalid request body' });
+    }
+
     const pool = await getPool();
+    const insertedIds = [];
 
-    // Kontrollera om det redan finns en Arduino med samma ID och PackageID
-    const existingArduino = await pool.request()
-      .input('ArduinoID', sql.Int, arduinoID)
-      .input('PackageID', sql.Int, packageID)
-      .query(`
-        SELECT * FROM Arduinos 
-        WHERE ArduinoID = @ArduinoID AND PackageID = @PackageID
-      `);
+    for (const sensor of data) {
+      const { ArduinoID, GPSLatitude, GPSLongitude, Temperature, Humidity, SensorTimeStamp } = sensor;
 
-    if (existingArduino.recordset.length > 0) {
-      return res.status(400).json({ error: 'Arduino already has this package connected' });
+      if (!ArduinoID) {
+        console.warn('Skipping invalid sensor entry (missing ArduinoID):', sensor);
+        continue; // hoppa över ogiltiga rader
+      }
+
+      // Skicka in värden i databasen och få tillbaka SensorDataID
+      const result = await pool.request()
+        .input('ArduinoID', sql.Int, ArduinoID)
+        .input('GPSLatitude', sql.Decimal(9, 6), GPSLatitude ?? null)
+        .input('GPSLongitude', sql.Decimal(9, 6), GPSLongitude ?? null)
+        .input('Temperature', sql.Int, Temperature ?? null)
+        .input('Humidity', sql.Int, Humidity ?? null)
+        .input('SensorTimeStamp', sql.DateTime2, SensorTimeStamp ?? new Date())
+        .query(`
+          INSERT INTO SensorData (ArduinoID, GPSLatitude, GPSLongitude, Temperature, Humidity, SensorTimeStamp)
+          OUTPUT INSERTED.ArduinoID
+          VALUES (@ArduinoID, @GPSLatitude, @GPSLongitude, @Temperature, @Humidity, @SensorTimeStamp);
+        `);
+
+      insertedIds.push(result.recordset[0].SensorDataID);
     }
-    console.log({message: 'funkar här'})
-
-    // Skapa ny Arduino med nytt ID och koppla till package
-    const result = await pool.request()
-      .input('ArduinoID', sql.Int, arduinoID)
-      .input('PackageID', sql.Int, packageID)
-      .query(`
-        INSERT INTO Arduinos (ArduinoID, PackageID)
-        VALUES (@ArduinoID, @PackageID)
-      `);
 
     res.status(201).json({
-      message: 'Arduino created successfully',
-      arduino: { arduinoID, packageID }
+      success: true,
+      message: `Inserted ${insertedIds.length} sensor entr${insertedIds.length === 1 ? 'y' : 'ies'}.`
     });
 
   } catch (error) {
-    console.error('Error creating Arduino:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error inserting sensor data:', error);
+    res.status(500).json({ error: 'Failed to create sensor data', details: error.message });
   }
 });
+
+
+
 
 
 
