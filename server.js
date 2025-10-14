@@ -430,6 +430,51 @@ app.post('/api/sensordata', async (req, res) => {
     }
 });
 
+app.post('/api/arduino', async (req, res) => {
+  const { arduinoID, packageID } = req.body;
+
+  try {
+    if (!arduinoID || !packageID) {
+      return res.status(400).json({ error: 'arduinoID and packageID are required' });
+    }
+    console.log({message: 'funkar här'})
+    const pool = await getPool();
+
+    // Kontrollera om det redan finns en Arduino med samma ID och PackageID
+    const existingArduino = await pool.request()
+      .input('ArduinoID', sql.Int, arduinoID)
+      .input('PackageID', sql.Int, packageID)
+      .query(`
+        SELECT * FROM Arduinos 
+        WHERE ArduinoID = @ArduinoID AND PackageID = @PackageID
+      `);
+
+    if (existingArduino.recordset.length > 0) {
+      return res.status(400).json({ error: 'Arduino already has this package connected' });
+    }
+    console.log({message: 'funkar här'})
+
+    // Skapa ny Arduino med nytt ID och koppla till package
+    const result = await pool.request()
+      .input('ArduinoID', sql.Int, arduinoID)
+      .input('PackageID', sql.Int, packageID)
+      .query(`
+        INSERT INTO Arduinos (ArduinoID, PackageID)
+        VALUES (@ArduinoID, @PackageID)
+      `);
+
+    res.status(201).json({
+      message: 'Arduino created successfully',
+      arduino: { arduinoID, packageID }
+    });
+
+  } catch (error) {
+    console.error('Error creating Arduino:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
 
 
 
