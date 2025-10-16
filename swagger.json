@@ -1,0 +1,229 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "User & Package API",
+    "version": "1.0.0",
+    "description": "API for user registration, login, package management, and sensor data"
+  },
+  "servers": [
+    { "url": "https://team9testwebapp-h3b5c7gqgbeqhxgp.swedencentral-01.azurewebsites.net", "description": "Local development server" }
+  ],
+  "paths": {
+    "/api/register": {
+      "post": {
+        "summary": "Register a new user",
+        "description": "Registers a new driver, sender, or receiver. Receivers require an address.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["Role", "FirstName", "LastName", "UserName", "Password"],
+                "properties": {
+                  "Role": { "type": "string", "example": "driver", "description": "Role: driver, sender, or receiver" },
+                  "FirstName": { "type": "string", "example": "Anna" },
+                  "LastName": { "type": "string", "example": "Svensson" },
+                  "UserName": { "type": "string", "example": "anna123" },
+                  "Password": { "type": "string", "example": "password123" },
+                  "Adress": { "type": "string", "example": "Storgatan 1, Stockholm", "description": "Required only for receivers" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created successfully" },
+          "400": { "description": "Missing required fields or invalid role" },
+          "409": { "description": "User already exists" },
+          "500": { "description": "Server error" }
+        }
+      },
+      "delete": {
+        "summary": "Delete a user",
+        "description": "Deletes a user by Role and Id or UserName.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["Role"],
+                "properties": {
+                  "Role": { "type": "string", "example": "driver" },
+                  "UserName": { "type": "string", "example": "anna123" },
+                  "Id": { "type": "integer", "example": 1 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User deleted successfully" },
+          "400": { "description": "Invalid input or missing identifier" },
+          "404": { "description": "User not found" },
+          "500": { "description": "Server error" }
+        }
+      },
+      "put": {
+        "summary": "Update a user",
+        "description": "Updates a user by Id or UserName. Fields are optional, Receivers can also update address.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "TableName": { "type": "string", "example": "Drivers" },
+                  "Id": { "type": "integer", "example": 1 },
+                  "UserName": { "type": "string", "example": "anna123" },
+                  "FirstName": { "type": "string", "example": "Anna" },
+                  "LastName": { "type": "string", "example": "Svensson" },
+                  "NewUserName": { "type": "string", "example": "anna456" },
+                  "Password": { "type": "string", "example": "newpassword" },
+                  "Adress": { "type": "string", "example": "New Street 5" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User updated successfully" },
+          "400": { "description": "Missing TableName or no updatable fields" },
+          "404": { "description": "User not found" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/api/register/drivers": {
+      "get": {
+        "summary": "Get drivers",
+        "description": "Returns a list of drivers",
+        "responses": {
+          "200": { "description": "List of drivers" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/api/register/senders": {
+      "get": {
+        "summary": "Get senders",
+        "description": "Returns a list of senders",
+        "responses": {
+          "200": { "description": "List of senders" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/api/register/receivers": {
+      "get": {
+        "summary": "Get receivers",
+        "description": "Returns a list of receivers",
+        "responses": {
+          "200": { "description": "List of receivers" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/api/login": {
+      "post": {
+        "summary": "User login",
+        "description": "Login a user and receive a JWT token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["Role", "UserName", "Password"],
+                "properties": {
+                  "Role": { "type": "string", "example": "driver" },
+                  "UserName": { "type": "string", "example": "anna123" },
+                  "Password": { "type": "string", "example": "password123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful, returns token" },
+          "400": { "description": "Missing required fields or user does not exist" },
+          "401": { "description": "Invalid password" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/api/packages": {
+      "post": {
+        "summary": "Create a package",
+        "description": "Creates a new package with driver, sender, receiver, and dimensions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["DriverID", "SenderID", "ReceiverID"],
+                "properties": {
+                  "DriverID": { "type": "integer", "example": 1 },
+                  "SenderID": { "type": "integer", "example": 2 },
+                  "ReceiverID": { "type": "integer", "example": 3 },
+                  "PackageWidth": { "type": "number", "example": 10.5 },
+                  "PackageHeight": { "type": "number", "example": 5.2 },
+                  "PackageWeight": { "type": "number", "example": 2.3 },
+                  "PackageDepth": { "type": "number", "example": 7.8 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Package created successfully" },
+          "400": { "description": "Missing required fields" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/api/sensordata": {
+      "post": {
+        "summary": "Insert sensor data",
+        "description": "Adds one or more sensor readings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  { 
+                    "type": "object",
+                    "required": ["ArduinoID"],
+                    "properties": {
+                      "ArduinoID": { "type": "integer", "example": 1 },
+                      "GPSLatitude": { "type": "number", "example": 59.3293 },
+                      "GPSLongitude": { "type": "number", "example": 18.0686 },
+                      "Temperature": { "type": "integer", "example": 22 },
+                      "Humidity": { "type": "integer", "example": 55 },
+                      "SensorTimeStamp": { "type": "string", "format": "date-time", "example": "2025-10-16T12:00:00Z" }
+                    }
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/paths/~1api~1sensordata/post/requestBody/content/application~1json/schema/oneOf/0"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Sensor data inserted successfully" },
+          "400": { "description": "Invalid input" },
+          "500": { "description": "Server error" }
+        }
+      }
+    }
+  }
+}

@@ -4,8 +4,13 @@ const jwt = require('jsonwebtoken')
 const express = require("express");
 const sql = require("mssql");
 const { error } = require('winston');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swagger.json');
 //const loginConfig = require("./config/loginConfig.js"); // er databas-konfiguration
 const app = express();
+
+// Koppla Swagger UI till /api-docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // VIKTIGT: Azure tilldelar porten via miljövariabeln PORT
 const port = process.env.PORT || 8080;
