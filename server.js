@@ -6,7 +6,6 @@ const sql = require("mssql");
 const { error } = require('winston');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
-//const loginConfig = require("./config/loginConfig.js"); // er databas-konfiguration
 const app = express();
 
 // Koppla Swagger UI till /api-docs
@@ -210,13 +209,13 @@ app.post('/api/login', async (req, res) => {
 const{ Role, UserName, Password} = req.body
   try {
 if(!Role || !UserName || !Password){
-      return res.status(400).json({message: "You need to put Role, UserName, Password"})
+      return res.status(400).json({error: "You need to put Role, UserName, Password"})
     }
     if(!TableExist(Role)){
-      return res.status(400).json({message: "Role does not exist"})
+      return res.status(400).json({error: "Role does not exist"})
     }
     if(!(await UserExist(UserName))){
-      return res.status(400).json({message: "User does not exist"})
+      return res.status(400).json({error: "User does not exist"})
     }
     
     const result = await pool.request()
@@ -225,12 +224,12 @@ if(!Role || !UserName || !Password){
       .query(`SELECT * FROM ${TableName} WHERE UserName = @UserName`);
 
       if(!(result.recordset[0].Password === Password)){
-        res.status(401).json({message: "Invalid password"})
+        res.status(401).json({error: "Invalid password"})
       }
       const token = jwt.sign({ id: UserName }, process.env.JWT_SECRET, { expiresIn: '24h' });
-        res.status(200).json({ token: token, message: "You are logged in" });
+        res.status(200).json({ token: token, error: "You are logged in" });
   } catch (error) {
-    console.error(error)
+    res.status(500).json({details: error.message})
   
   }
 });
@@ -381,6 +380,79 @@ app.post('/api/packages', async (req, res) => {
     }
 });
 
+app.post('/api/packages', async (req, res) => {
+    try {
+        const { DriverID, SenderID, ReceiverID, PackageWidth, PackageHeight, PackageWeight, PackageDepth } = req.body;
+        if (!SenderID || !ReceiverID || !DriverID) {
+            return res.status(400).json({ error: 'DriverID, SenderID and ReceiverID are required' });
+        }
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('DriverID', sql.Int, DriverID)
+            .input('SenderID', sql.Int, SenderID)
+            .input('ReceiverID', sql.Int, ReceiverID)
+            .input('Registered', sql.DateTime2, new Date())
+            .input('PackageWidth', sql.Decimal(10, 2), PackageWidth || null)
+            .input('PackageHeight', sql.Decimal(10, 2), PackageHeight || null)
+            .input('PackageWeight', sql.Decimal(10, 2), PackageWeight || null)
+            .input('PackageDepth', sql.Decimal(10, 2), PackageDepth || null)
+            .query(`
+                INSERT INTO Packages (DriverID, SenderID, ReceiverID, Registered, PackageWidth, PackageHeight, PackageWeight, PackageDepth)
+                OUTPUT INSERTED.*
+                VALUES (@DriverID, @SenderID, @ReceiverID, @Registered, @PackageWidth, @PackageHeight, @PackageWeight, @PackageDepth)
+            `);
+        res.status(201).json({ success: true, package: result.recordset[0] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create package'});
+    }
+});
+
+app.post('/api/arduino', async (req, res) => {
+  try {
+    const { ArduinoID, PackageID } = req.body;
+
+    // 1️⃣ Kontrollera obligatoriska fält
+    if (!ArduinoID || !PackageID) {
+      return res.status(400).json({success: false, error: 'You need both ArduinoID and PackageID' });
+    }
+
+    const pool = await getPool();
+
+    // 2️⃣ Kolla om Arduino redan finns
+    const existing = await pool.request()
+      .input('ArduinoID', sql.Int, ArduinoID)
+      .query('SELECT PackageID FROM Arduinos WHERE ArduinoID = @ArduinoID');
+
+    if (existing.recordset.length > 0) {
+      const existingPackage = existing.recordset[0].PackageID;
+      return res.status(400).json({
+        error: `Arduino already exists and is linked to PackageID: ${existingPackage}`
+      });
+    }
+
+    // 3️⃣ Lägg till ny Arduino
+    const result = await pool.request()
+      .input('ArduinoID', sql.Int, ArduinoID)
+      .input('PackageID', sql.Int, PackageID)
+      .query(`
+        INSERT INTO Arduinos (ArduinoID, PackageID)
+        OUTPUT INSERTED.*
+        VALUES (@ArduinoID, @PackageID);
+      `);
+
+    // 4️⃣ Returnera resultatet
+    res.status(201).json({
+      success: true,
+      message: 'Arduino linked to package successfully',
+      arduino: result.recordset[0]
+    });
+
+  } catch (error) {
+    console.error('Error in /api/arduino:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 
 app.post('/api/sensordata', async (req, res) => {
   try {
@@ -422,7 +494,13 @@ app.post('/api/sensordata', async (req, res) => {
 
       insertedIds.push(result.recordset[0].SensorDataID);
     }
-
+    //Check if there was no data inserted
+    if(!insertedIds.length > 0){
+      return res.status(400).json({
+      success: false,
+      message: `Empty data array or invalid request body`
+    });
+    }
     res.status(201).json({
       success: true,
       message: `Inserted ${insertedIds.length} sensor entr${insertedIds.length === 1 ? 'y' : 'ies'}.`
