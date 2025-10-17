@@ -91,34 +91,6 @@ app.get("/", (req, res) => {
   });
 });
 
-
-//Create User
-/*app.post('/api/register/', async (req, res) => {
-  try {
-    const { TableName, FirstName, LastName, UserName, Password } = req.body;
-
-    if (!TableName || !FirstName || !LastName || !UserName || !Password) {
-      return res.status(400).json({ error: 'All fields required: FirstName, LastName, UserName, Password' });
-    }
-
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('FirstName', sql.NVarChar, FirstName)
-      .input('LastName', sql.NVarChar, LastName)
-      .input('UserName', sql.VarChar, UserName)
-      .input('Password', sql.VarChar, Password)
-      .query(`
-                INSERT INTO ${TableName} (FirstName, LastName, UserName, Password)
-                OUTPUT INSERTED.*
-                VALUES (@FirstName, @LastName, @UserName, @Password);
-            `);
-
-    res.status(201).json({ success: true, driver: result.recordset[0] });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create driver', details: error.message });
-  }
-});*/
-
 app.post('/api/register', async (req, res) => {
   try {
     const { Role, FirstName, LastName, UserName, Password, Adress } = req.body;
