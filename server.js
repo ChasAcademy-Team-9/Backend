@@ -26,8 +26,8 @@ const loginConfig = {
   },
 };
 
-let TableName
-let TableId
+let TableName //Global Table Name for database
+let TableId   //Using correct table ID for specifik TableName
 
 //Check if table exsit by using keyword for driver, receiver and sender
 function TableExist(role){
