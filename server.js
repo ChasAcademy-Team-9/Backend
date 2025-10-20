@@ -25,9 +25,11 @@ const loginConfig = {
     trustServerCertificate: false
   },
 };
+
 let TableName
 let TableId
 
+//Check if table exsit by using keyword for driver, receiver and sender
 function TableExist(role){
     switch(role){
       case "driver":
@@ -47,6 +49,8 @@ function TableExist(role){
     }
     return true
 }
+
+//Check if user alredy exist
 async function UserExist(UserName){
   const pool = await getPool();
 
@@ -90,6 +94,7 @@ app.get("/", (req, res) => {
   });
 });
 
+//Create new user
 app.post('/api/register', async (req, res) => {
   try {
     const { Role, FirstName, LastName, UserName, Password } = req.body;
@@ -126,6 +131,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+//Deletes a user a table
 app.delete('/api/register', async (req, res) => {
   try {
     const { Role, UserName, Id } = req.body;
@@ -233,6 +239,7 @@ app.get('/api/register/drivers', async (req, res) => {
   }
 });
 
+//Gets all users from senders
 app.get('/api/register/senders', async (req, res) => {
   try {
     const pool = await getPool();
@@ -250,6 +257,7 @@ app.get('/api/register/senders', async (req, res) => {
   }
 });
 
+//Gets all users from recivers
 app.get('/api/register/receivers', async (req, res) => {
   try {
     const pool = await getPool();
@@ -375,6 +383,7 @@ app.get('/api/packages/:id', async (req, res) => {
     }
 });
 
+//Gets driver by driverID
 app.get('/api/packages/driver/:driverId', async (req, res) => {
     try {
         const pool = await getPool();
@@ -387,7 +396,7 @@ app.get('/api/packages/driver/:driverId', async (req, res) => {
     }
 });
 
-//Skapa pacakges
+//Create new package
 app.post('/api/packages', async (req, res) => {
     try {
         const { DriverID, SenderID, ReceiverID, PackageWidth, PackageHeight, PackageWeight, PackageDepth, Origin, Destination } = req.body;
@@ -420,7 +429,7 @@ app.post('/api/packages', async (req, res) => {
     }
 });
 
-
+//Checks and creates a new Arduino ID with a package connected to it
 app.post('/api/arduino', async (req, res) => {
   try {
     const { ArduinoID, PackageID } = req.body;
@@ -467,7 +476,7 @@ app.post('/api/arduino', async (req, res) => {
   }
 });
 
-
+//Create sensor data from array of data
 app.post('/api/sensordata', async (req, res) => {
   try {
     let data = req.body;
@@ -485,7 +494,7 @@ app.post('/api/sensordata', async (req, res) => {
     const insertedIds = [];
 
     for (const sensor of data) {
-      const { ArduinoID, GPSLatitude, GPSLongitude, Temperature, Humidity, SensorTimeStamp } = sensor;
+      const { ArduinoID, Temperature, Humidity, SensorTimeStamp } = sensor;
 
       if (!ArduinoID) {
         console.warn('Skipping invalid sensor entry (missing ArduinoID):', sensor);
@@ -495,15 +504,13 @@ app.post('/api/sensordata', async (req, res) => {
       // Skicka in värden i databasen och få tillbaka SensorDataID
       const result = await pool.request()
         .input('ArduinoID', sql.Int, ArduinoID)
-        .input('GPSLatitude', sql.Decimal(9, 6), GPSLatitude ?? null)
-        .input('GPSLongitude', sql.Decimal(9, 6), GPSLongitude ?? null)
         .input('Temperature', sql.Int, Temperature ?? null)
         .input('Humidity', sql.Int, Humidity ?? null)
         .input('SensorTimeStamp', sql.DateTime2, SensorTimeStamp ?? new Date())
         .query(`
-          INSERT INTO SensorData (ArduinoID, GPSLatitude, GPSLongitude, Temperature, Humidity, SensorTimeStamp)
+          INSERT INTO SensorData (ArduinoID, Temperature, Humidity, SensorTimeStamp)
           OUTPUT INSERTED.ArduinoID
-          VALUES (@ArduinoID, @GPSLatitude, @GPSLongitude, @Temperature, @Humidity, @SensorTimeStamp);
+          VALUES (@ArduinoID, @Temperature, @Humidity, @SensorTimeStamp);
         `);
 
       insertedIds.push(result.recordset[0].SensorDataID);
