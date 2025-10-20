@@ -92,7 +92,7 @@ app.get("/", (req, res) => {
 
 app.post('/api/register', async (req, res) => {
   try {
-    const { Role, FirstName, LastName, UserName, Password, Adress } = req.body;
+    const { Role, FirstName, LastName, UserName, Password } = req.body;
 
     //Check every input is requered
     if (!Role || !FirstName || !LastName || !UserName || !Password) {
@@ -109,7 +109,6 @@ app.post('/api/register', async (req, res) => {
       return res.status(409).json({ success: false, error: 'User alredy exist'});
     }
 
-    if(TableName != "Receivers"){
       const pool = await getPool();
     const result = await pool.request()
       .input('FirstName', sql.NVarChar, FirstName)
@@ -120,24 +119,6 @@ app.post('/api/register', async (req, res) => {
                 INSERT INTO ${TableName} (FirstName, LastName, UserName, Password)
                 OUTPUT INSERTED.*
                 VALUES (@FirstName, @LastName, @UserName, @Password);
-            `);
-
-    return res.status(201).json({ success: true, driver: result.recordset});
-    }
-    if(!Adress){
-      return res.status(400).json({ success: false, error: 'A adress is requred'});
-    }
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('FirstName', sql.NVarChar, FirstName)
-      .input('LastName', sql.NVarChar, LastName)
-      .input('Adress', sql.NVarChar, Adress)
-      .input('UserName', sql.VarChar, UserName)
-      .input('Password', sql.VarChar, Password)
-      .query(`
-                INSERT INTO ${TableName} (FirstName, LastName, Adress, UserName, Password)
-                OUTPUT INSERTED.*
-                VALUES (@FirstName, @LastName, @Adress, @UserName, @Password);
             `);
     res.status(201).json({ success: true, driver: result.recordset });
   } catch (error) {
@@ -286,17 +267,15 @@ app.get('/api/register/receivers', async (req, res) => {
   }
 });
 
-
-
 // ========== PUT /api/register ==========
 // Update by Id (preferred) or UserName; updates only provided fields.
-// For Receivers you can also update Adress.
+// For Receivers you can also update.
 app.put('/api/register', async (req, res) => {
   try {
     const {
       TableName, Id, UserName,           // identify target (Id preferred)
       FirstName, LastName, NewUserName,  // updatable fields
-      Password, Adress                   // Receivers-only Adress
+      Password
     } = req.body;
 
     if (!TableName) {
@@ -326,11 +305,6 @@ app.put('/api/register', async (req, res) => {
     if (NewUserName !== undefined) { request.input('NewUserName', sql.VarChar, NewUserName); sets.push('UserName = @NewUserName'); }
     if (Password !== undefined) { request.input('Password', sql.VarChar, Password); sets.push('Password = @Password'); }
 
-    if (TableName === 'Receivers' && Adress !== undefined) {
-      request.input('Adress', sql.NVarChar, Adress);
-      sets.push('Adress = @Adress');
-    }
-
     if (sets.length === 0) {
       return res.status(400).json({ error: 'No updatable fields provided' });
     }
@@ -353,59 +327,99 @@ app.put('/api/register', async (req, res) => {
   }
 });
 
+//Shows all pacakges an every Username connected to it
+app.get('/api/packages', async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request().query(`
+            SELECT p.*, 
+                   d.FirstName + ' ' + d.LastName AS DriverName,
+                   s.FirstName + ' ' + s.LastName AS SenderName,
+                   r.FirstName + ' ' + r.LastName AS ReceiverName
+            FROM Packages p
+            LEFT JOIN Drivers d ON p.DriverID = d.DriverID
+            LEFT JOIN Senders s ON p.SenderID = s.SenderID
+            LEFT JOIN Receivers r ON p.ReceiverID = r.ReceiverID
+            ORDER BY p.PackageID DESC
+        `);
+        res.json({ success: true, packages: result.recordset });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch packages', details: error.message });
+    }
+});
+
+//Search function for specifik package
+app.get('/api/packages/:id', async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('id', sql.Int, req.params.id)
+            .query(`
+                SELECT p.*, 
+                       d.FirstName + ' ' + d.LastName AS DriverName,
+                       s.FirstName + ' ' + s.LastName AS SenderName,
+                       r.FirstName + ' ' + r.LastName AS ReceiverName
+                FROM Packages p
+                LEFT JOIN Drivers d ON p.DriverID = d.DriverID
+                LEFT JOIN Senders s ON p.SenderID = s.SenderID
+                LEFT JOIN Receivers r ON p.ReceiverID = r.ReceiverID
+                WHERE p.PackageID = @id
+            `);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: 'Package not found' });
+        }
+        res.json({ success: true, package: result.recordset[0] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch package', details: error.message });
+    }
+});
+
+app.get('/api/packages/driver/:driverId', async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('driverId', sql.Int, req.params.driverId)
+            .query('SELECT * FROM Packages WHERE DriverID = @driverId ORDER BY PackageID DESC');
+        res.json({ success: true, packages: result.recordset });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch packages', details: error.message });
+    }
+});
+
+//Skapa pacakges
 app.post('/api/packages', async (req, res) => {
     try {
-        const { DriverID, SenderID, ReceiverID, PackageWidth, PackageHeight, PackageWeight, PackageDepth } = req.body;
-        if (!SenderID || !ReceiverID || !DriverID) {
-            return res.status(400).json({ error: 'DriverID, SenderID and ReceiverID are required' });
+        const { DriverID, SenderID, ReceiverID, PackageWidth, PackageHeight, PackageWeight, PackageDepth, Origin, Destination } = req.body;
+
+        if (!DriverID || !SenderID || !ReceiverID || !PackageWidth || !PackageHeight || !PackageWeight || !PackageDepth || !Origin || !Destination) {
+            return res.status(400).json({ error: 'DriverID, SenderID, ReceiverID, PackageWidth, PackageHeight, PackageWeight, PackageDepth, Origin, Destination are required' });
         }
+
         const pool = await getPool();
         const result = await pool.request()
             .input('DriverID', sql.Int, DriverID)
             .input('SenderID', sql.Int, SenderID)
             .input('ReceiverID', sql.Int, ReceiverID)
-            .input('Registered', sql.DateTime2, new Date())
-            .input('PackageWidth', sql.Decimal(10, 2), PackageWidth || null)
-            .input('PackageHeight', sql.Decimal(10, 2), PackageHeight || null)
-            .input('PackageWeight', sql.Decimal(10, 2), PackageWeight || null)
-            .input('PackageDepth', sql.Decimal(10, 2), PackageDepth || null)
+            .input('Status', sql.NVarChar, 'Registered')
+            .input('PackageWidth', sql.Decimal(10, 2), PackageWidth)
+            .input('PackageHeight', sql.Decimal(10, 2), PackageHeight)
+            .input('PackageWeight', sql.Decimal(10, 2), PackageWeight)
+            .input('PackageDepth', sql.Decimal(10, 2), PackageDepth)
+            .input('Origin', sql.NVarChar, Origin)
+            .input('Destination', sql.NVarChar, Destination)
             .query(`
-                INSERT INTO Packages (DriverID, SenderID, ReceiverID, Registered, PackageWidth, PackageHeight, PackageWeight, PackageDepth)
+                INSERT INTO Packages (DriverID, SenderID, ReceiverID, Status, PackageWidth, PackageHeight, PackageWeight, PackageDepth, Origin, Destination)
                 OUTPUT INSERTED.*
-                VALUES (@DriverID, @SenderID, @ReceiverID, @Registered, @PackageWidth, @PackageHeight, @PackageWeight, @PackageDepth)
+                VALUES (@DriverID, @SenderID, @ReceiverID, @Status, @PackageWidth, @PackageHeight, @PackageWeight, @PackageDepth, @Origin, @Destination)
             `);
+
         res.status(201).json({ success: true, package: result.recordset[0] });
     } catch (error) {
         res.status(500).json({ error: 'Failed to create package', details: error.message });
     }
 });
 
-app.post('/api/packages', async (req, res) => {
-    try {
-        const { DriverID, SenderID, ReceiverID, PackageWidth, PackageHeight, PackageWeight, PackageDepth } = req.body;
-        if (!SenderID || !ReceiverID || !DriverID) {
-            return res.status(400).json({ error: 'DriverID, SenderID and ReceiverID are required' });
-        }
-        const pool = await getPool();
-        const result = await pool.request()
-            .input('DriverID', sql.Int, DriverID)
-            .input('SenderID', sql.Int, SenderID)
-            .input('ReceiverID', sql.Int, ReceiverID)
-            .input('Registered', sql.DateTime2, new Date())
-            .input('PackageWidth', sql.Decimal(10, 2), PackageWidth || null)
-            .input('PackageHeight', sql.Decimal(10, 2), PackageHeight || null)
-            .input('PackageWeight', sql.Decimal(10, 2), PackageWeight || null)
-            .input('PackageDepth', sql.Decimal(10, 2), PackageDepth || null)
-            .query(`
-                INSERT INTO Packages (DriverID, SenderID, ReceiverID, Registered, PackageWidth, PackageHeight, PackageWeight, PackageDepth)
-                OUTPUT INSERTED.*
-                VALUES (@DriverID, @SenderID, @ReceiverID, @Registered, @PackageWidth, @PackageHeight, @PackageWeight, @PackageDepth)
-            `);
-        res.status(201).json({ success: true, package: result.recordset[0] });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to create package'});
-    }
-});
 
 app.post('/api/arduino', async (req, res) => {
   try {
@@ -511,13 +525,6 @@ app.post('/api/sensordata', async (req, res) => {
     res.status(500).json({ error: 'Failed to create sensor data', details: error.message });
   }
 });
-
-
-
-
-
-
-
 
 // 404 hantering
 app.use((req, res) => {
