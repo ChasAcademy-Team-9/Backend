@@ -1,0 +1,501 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "User & Package API",
+    "version": "1.0.0",
+    "description": "API for user registration, login, package management, and sensor data"
+  },
+  "servers": [
+    {
+      "url": "https://team9testwebapp-h3b5c7gqgbeqhxgp.swedencentral-01.azurewebsites.net",
+      "description": "Local development server"
+    }
+  ],
+  "paths": {
+    "/api/register": {
+      "post": {
+        "summary": "Registrera ny användare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "Role": {
+                    "type": "string",
+                    "example": "driver"
+                  },
+                  "FirstName": {
+                    "type": "string",
+                    "example": "John"
+                  },
+                  "LastName": {
+                    "type": "string",
+                    "example": "Doe"
+                  },
+                  "UserName": {
+                    "type": "string",
+                    "example": "johndoe"
+                  },
+                  "Password": {
+                    "type": "string",
+                    "example": "secret"
+                  }
+                },
+                "required": [
+                  "Role",
+                  "FirstName",
+                  "LastName",
+                  "UserName",
+                  "Password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Användare skapad"
+          },
+          "400": {
+            "description": "Felaktig förfrågan"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Ta bort användare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "Role": {
+                    "type": "string",
+                    "example": "driver"
+                  },
+                  "UserName": {
+                    "type": "string",
+                    "example": "johndoe"
+                  },
+                  "Id": {
+                    "type": "integer",
+                    "example": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Användare borttagen"
+          },
+          "400": {
+            "description": "Felaktig förfrågan"
+          },
+          "404": {
+            "description": "Användare hittades inte"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      },
+      "put": {
+        "summary": "Uppdatera användare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "TableName": {
+                    "type": "string",
+                    "example": "Drivers"
+                  },
+                  "Id": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "UserName": {
+                    "type": "string",
+                    "example": "johndoe"
+                  },
+                  "FirstName": {
+                    "type": "string",
+                    "example": "John"
+                  },
+                  "LastName": {
+                    "type": "string",
+                    "example": "Doe"
+                  },
+                  "NewUserName": {
+                    "type": "string",
+                    "example": "johnnydoe"
+                  },
+                  "Password": {
+                    "type": "string",
+                    "example": "newpass"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Användare uppdaterad"
+          },
+          "400": {
+            "description": "Felaktig förfrågan"
+          },
+          "404": {
+            "description": "Användare hittades inte"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      }
+    },
+    "/api/register/drivers": {
+      "get": {
+        "summary": "Hämta alla förare",
+        "responses": {
+          "200": {
+            "description": "Lista med alla förare"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      }
+    },
+    "/api/register/receivers": {
+      "get": {
+        "summary": "Hämta alla beställare",
+        "responses": {
+          "200": {
+            "description": "Lista med alla beställare"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      }
+    },
+    "/api/register/senders": {
+      "get": {
+        "summary": "Hämta alla leverantörer",
+        "responses": {
+          "200": {
+            "description": "Lista med alla leverantörer"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      }
+    },
+    "/api/login": {
+      "post": {
+        "summary": "Logga in användare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "Role": {
+                    "type": "string",
+                    "example": "driver"
+                  },
+                  "UserName": {
+                    "type": "string",
+                    "example": "johndoe"
+                  },
+                  "Password": {
+                    "type": "string",
+                    "example": "secret"
+                  }
+                },
+                "required": [
+                  "Role",
+                  "UserName",
+                  "Password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Inloggad, JWT token returneras"
+          },
+          "400": {
+            "description": "Felaktig förfrågan"
+          },
+          "401": {
+            "description": "Fel lösenord"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      }
+    },
+    "/api/packages": {
+      "get": {
+        "summary": "Hämta alla paket",
+        "responses": {
+          "200": {
+            "description": "Lista med paket"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      },
+      "post": {
+        "summary": "Skapa nytt paket",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "DriverID": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "SenderID": {
+                    "type": "integer",
+                    "example": 2
+                  },
+                  "ReceiverID": {
+                    "type": "integer",
+                    "example": 3
+                  },
+                  "PackageWidth": {
+                    "type": "number",
+                    "format": "float",
+                    "example": 10.5
+                  },
+                  "PackageHeight": {
+                    "type": "number",
+                    "format": "float",
+                    "example": 15.0
+                  },
+                  "PackageWeight": {
+                    "type": "number",
+                    "format": "float",
+                    "example": 2.3
+                  },
+                  "PackageDepth": {
+                    "type": "number",
+                    "format": "float",
+                    "example": 8.0
+                  },
+                  "Origin": {
+                    "type": "string",
+                    "example": "Stockholm"
+                  },
+                  "Destination": {
+                    "type": "string",
+                    "example": "Göteborg"
+                  }
+                },
+                "required": [
+                  "DriverID",
+                  "SenderID",
+                  "ReceiverID",
+                  "PackageWidth",
+                  "PackageHeight",
+                  "PackageWeight",
+                  "PackageDepth",
+                  "Origin",
+                  "Destination"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Paket skapat"
+          },
+          "400": {
+            "description": "Felaktig förfrågan"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      }
+    },
+    "/api/packages/{id}": {
+      "get": {
+        "summary": "Hämta specifikt paket",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "PackageID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paket information"
+          },
+          "404": {
+            "description": "Paket hittades inte"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      }
+    },
+    "/api/packages/driver/{driverId}": {
+      "get": {
+        "summary": "Hämta alla paket för en specifik förare",
+        "parameters": [
+          {
+            "name": "driverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "DriverID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista med paket"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      }
+    },
+    "/api/arduino": {
+      "post": {
+        "summary": "Lägg till en Arduino och koppla till paket",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ArduinoID": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "PackageID": {
+                    "type": "integer",
+                    "example": 5
+                  }
+                },
+                "required": [
+                  "ArduinoID",
+                  "PackageID"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Arduino kopplad till paket"
+          },
+          "400": {
+            "description": "Felaktig förfrågan"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      }
+    },
+    "/api/sensordata": {
+      "post": {
+        "summary": "Skicka sensordata",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ArduinoID": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "GPSLatitude": {
+                      "type": "number",
+                      "format": "float",
+                      "example": 59.3293
+                    },
+                    "GPSLongitude": {
+                      "type": "number",
+                      "format": "float",
+                      "example": 18.0686
+                    },
+                    "Temperature": {
+                      "type": "integer",
+                      "example": 22
+                    },
+                    "Humidity": {
+                      "type": "integer",
+                      "example": 60
+                    },
+                    "SensorTimeStamp": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2025-10-20T12:00:00Z"
+                    }
+                  },
+                  "required": [
+                    "ArduinoID"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sensordata inskickad"
+          },
+          "400": {
+            "description": "Felaktig förfrågan"
+          },
+          "500": {
+            "description": "Serverfel"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {}
+  }
+}

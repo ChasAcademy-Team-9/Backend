@@ -4,8 +4,12 @@ const jwt = require('jsonwebtoken')
 const express = require("express");
 const sql = require("mssql");
 const { error } = require('winston');
-//const loginConfig = require("./config/loginConfig.js"); // er databas-konfiguration
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swagger.json');
 const app = express();
+
+// Koppla Swagger UI till /api-docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // VIKTIGT: Azure tilldelar porten via miljövariabeln PORT
 const port = process.env.PORT || 8080;
@@ -21,9 +25,11 @@ const loginConfig = {
     trustServerCertificate: false
   },
 };
-let TableName
-let TableId
 
+let TableName //Global Table Name for database
+let TableId   //Using correct table ID for specifik TableName
+
+//Check if table exsit by using keyword for driver, receiver and sender
 function TableExist(role){
     switch(role){
       case "driver":
@@ -43,6 +49,8 @@ function TableExist(role){
     }
     return true
 }
+
+//Check if user alredy exist
 async function UserExist(UserName){
   const pool = await getPool();
 
@@ -86,37 +94,10 @@ app.get("/", (req, res) => {
   });
 });
 
-
-//Create User
-/*app.post('/api/register/', async (req, res) => {
-  try {
-    const { TableName, FirstName, LastName, UserName, Password } = req.body;
-
-    if (!TableName || !FirstName || !LastName || !UserName || !Password) {
-      return res.status(400).json({ error: 'All fields required: FirstName, LastName, UserName, Password' });
-    }
-
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('FirstName', sql.NVarChar, FirstName)
-      .input('LastName', sql.NVarChar, LastName)
-      .input('UserName', sql.VarChar, UserName)
-      .input('Password', sql.VarChar, Password)
-      .query(`
-                INSERT INTO ${TableName} (FirstName, LastName, UserName, Password)
-                OUTPUT INSERTED.*
-                VALUES (@FirstName, @LastName, @UserName, @Password);
-            `);
-
-    res.status(201).json({ success: true, driver: result.recordset[0] });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create driver', details: error.message });
-  }
-});*/
-
+//Create new user
 app.post('/api/register', async (req, res) => {
   try {
-    const { Role, FirstName, LastName, UserName, Password, Adress } = req.body;
+    const { Role, FirstName, LastName, UserName, Password } = req.body;
 
     //Check every input is requered
     if (!Role || !FirstName || !LastName || !UserName || !Password) {
@@ -133,7 +114,6 @@ app.post('/api/register', async (req, res) => {
       return res.status(409).json({ success: false, error: 'User alredy exist'});
     }
 
-    if(TableName != "Receivers"){
       const pool = await getPool();
     const result = await pool.request()
       .input('FirstName', sql.NVarChar, FirstName)
@@ -145,30 +125,13 @@ app.post('/api/register', async (req, res) => {
                 OUTPUT INSERTED.*
                 VALUES (@FirstName, @LastName, @UserName, @Password);
             `);
-
-    return res.status(201).json({ success: true, driver: result.recordset});
-    }
-    if(!Adress){
-      return res.status(400).json({ success: false, error: 'A adress is requred'});
-    }
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('FirstName', sql.NVarChar, FirstName)
-      .input('LastName', sql.NVarChar, LastName)
-      .input('Adress', sql.NVarChar, Adress)
-      .input('UserName', sql.VarChar, UserName)
-      .input('Password', sql.VarChar, Password)
-      .query(`
-                INSERT INTO ${TableName} (FirstName, LastName, Adress, UserName, Password)
-                OUTPUT INSERTED.*
-                VALUES (@FirstName, @LastName, @Adress, @UserName, @Password);
-            `);
     res.status(201).json({ success: true, driver: result.recordset });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create a user', details: error.message });
   }
 });
 
+//Deletes a user a table
 app.delete('/api/register', async (req, res) => {
   try {
     const { Role, UserName, Id } = req.body;
@@ -233,13 +196,13 @@ app.post('/api/login', async (req, res) => {
 const{ Role, UserName, Password} = req.body
   try {
 if(!Role || !UserName || !Password){
-      return res.status(400).json({message: "You need to put Role, UserName, Password"})
+      return res.status(400).json({error: "You need to put Role, UserName, Password"})
     }
     if(!TableExist(Role)){
-      return res.status(400).json({message: "Role does not exist"})
+      return res.status(400).json({error: "Role does not exist"})
     }
     if(!(await UserExist(UserName))){
-      return res.status(400).json({message: "User does not exist"})
+      return res.status(400).json({error: "User does not exist"})
     }
     
     const result = await pool.request()
@@ -248,12 +211,12 @@ if(!Role || !UserName || !Password){
       .query(`SELECT * FROM ${TableName} WHERE UserName = @UserName`);
 
       if(!(result.recordset[0].Password === Password)){
-        res.status(401).json({message: "Invalid password"})
+        res.status(401).json({error: "Invalid password"})
       }
       const token = jwt.sign({ id: UserName }, process.env.JWT_SECRET, { expiresIn: '24h' });
-        res.status(200).json({ token: token, message: "You are logged in" });
+        res.status(200).json({ token: token, error: "You are logged in" });
   } catch (error) {
-    console.error(error)
+    res.status(500).json({details: error.message})
   
   }
 });
@@ -276,6 +239,7 @@ app.get('/api/register/drivers', async (req, res) => {
   }
 });
 
+//Gets all users from senders
 app.get('/api/register/senders', async (req, res) => {
   try {
     const pool = await getPool();
@@ -293,6 +257,7 @@ app.get('/api/register/senders', async (req, res) => {
   }
 });
 
+//Gets all users from recivers
 app.get('/api/register/receivers', async (req, res) => {
   try {
     const pool = await getPool();
@@ -310,17 +275,15 @@ app.get('/api/register/receivers', async (req, res) => {
   }
 });
 
-
-
 // ========== PUT /api/register ==========
 // Update by Id (preferred) or UserName; updates only provided fields.
-// For Receivers you can also update Adress.
+// For Receivers you can also update.
 app.put('/api/register', async (req, res) => {
   try {
     const {
       TableName, Id, UserName,           // identify target (Id preferred)
       FirstName, LastName, NewUserName,  // updatable fields
-      Password, Adress                   // Receivers-only Adress
+      Password
     } = req.body;
 
     if (!TableName) {
@@ -350,11 +313,6 @@ app.put('/api/register', async (req, res) => {
     if (NewUserName !== undefined) { request.input('NewUserName', sql.VarChar, NewUserName); sets.push('UserName = @NewUserName'); }
     if (Password !== undefined) { request.input('Password', sql.VarChar, Password); sets.push('Password = @Password'); }
 
-    if (TableName === 'Receivers' && Adress !== undefined) {
-      request.input('Adress', sql.NVarChar, Adress);
-      sets.push('Adress = @Adress');
-    }
-
     if (sets.length === 0) {
       return res.status(400).json({ error: 'No updatable fields provided' });
     }
@@ -377,34 +335,148 @@ app.put('/api/register', async (req, res) => {
   }
 });
 
+//Shows all pacakges an every Username connected to it
+app.get('/api/packages', async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request().query(`
+            SELECT p.*, 
+                   d.FirstName + ' ' + d.LastName AS DriverName,
+                   s.FirstName + ' ' + s.LastName AS SenderName,
+                   r.FirstName + ' ' + r.LastName AS ReceiverName
+            FROM Packages p
+            LEFT JOIN Drivers d ON p.DriverID = d.DriverID
+            LEFT JOIN Senders s ON p.SenderID = s.SenderID
+            LEFT JOIN Receivers r ON p.ReceiverID = r.ReceiverID
+            ORDER BY p.PackageID DESC
+        `);
+        res.json({ success: true, packages: result.recordset });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch packages', details: error.message });
+    }
+});
+
+//Search function for specifik package
+app.get('/api/packages/:id', async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('id', sql.Int, req.params.id)
+            .query(`
+                SELECT p.*, 
+                       d.FirstName + ' ' + d.LastName AS DriverName,
+                       s.FirstName + ' ' + s.LastName AS SenderName,
+                       r.FirstName + ' ' + r.LastName AS ReceiverName
+                FROM Packages p
+                LEFT JOIN Drivers d ON p.DriverID = d.DriverID
+                LEFT JOIN Senders s ON p.SenderID = s.SenderID
+                LEFT JOIN Receivers r ON p.ReceiverID = r.ReceiverID
+                WHERE p.PackageID = @id
+            `);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: 'Package not found' });
+        }
+        res.json({ success: true, package: result.recordset[0] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch package', details: error.message });
+    }
+});
+
+//Gets driver by driverID
+app.get('/api/packages/driver/:driverId', async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('driverId', sql.Int, req.params.driverId)
+            .query('SELECT * FROM Packages WHERE DriverID = @driverId ORDER BY PackageID DESC');
+        res.json({ success: true, packages: result.recordset });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch packages', details: error.message });
+    }
+});
+
+//Create new package
 app.post('/api/packages', async (req, res) => {
     try {
-        const { DriverID, SenderID, ReceiverID, PackageWidth, PackageHeight, PackageWeight, PackageDepth } = req.body;
-        if (!SenderID || !ReceiverID || !DriverID) {
-            return res.status(400).json({ error: 'DriverID, SenderID and ReceiverID are required' });
+        const { DriverID, SenderID, ReceiverID, PackageWidth, PackageHeight, PackageWeight, PackageDepth, Origin, Destination } = req.body;
+
+        if (!DriverID || !SenderID || !ReceiverID || !PackageWidth || !PackageHeight || !PackageWeight || !PackageDepth || !Origin || !Destination) {
+            return res.status(400).json({ error: 'DriverID, SenderID, ReceiverID, PackageWidth, PackageHeight, PackageWeight, PackageDepth, Origin, Destination are required' });
         }
+
         const pool = await getPool();
         const result = await pool.request()
             .input('DriverID', sql.Int, DriverID)
             .input('SenderID', sql.Int, SenderID)
             .input('ReceiverID', sql.Int, ReceiverID)
-            .input('Registered', sql.DateTime2, new Date())
-            .input('PackageWidth', sql.Decimal(10, 2), PackageWidth || null)
-            .input('PackageHeight', sql.Decimal(10, 2), PackageHeight || null)
-            .input('PackageWeight', sql.Decimal(10, 2), PackageWeight || null)
-            .input('PackageDepth', sql.Decimal(10, 2), PackageDepth || null)
+            .input('Status', sql.NVarChar, 'Registered')
+            .input('PackageWidth', sql.Decimal(10, 2), PackageWidth)
+            .input('PackageHeight', sql.Decimal(10, 2), PackageHeight)
+            .input('PackageWeight', sql.Decimal(10, 2), PackageWeight)
+            .input('PackageDepth', sql.Decimal(10, 2), PackageDepth)
+            .input('Origin', sql.NVarChar, Origin)
+            .input('Destination', sql.NVarChar, Destination)
             .query(`
-                INSERT INTO Packages (DriverID, SenderID, ReceiverID, Registered, PackageWidth, PackageHeight, PackageWeight, PackageDepth)
+                INSERT INTO Packages (DriverID, SenderID, ReceiverID, Status, PackageWidth, PackageHeight, PackageWeight, PackageDepth, Origin, Destination)
                 OUTPUT INSERTED.*
-                VALUES (@DriverID, @SenderID, @ReceiverID, @Registered, @PackageWidth, @PackageHeight, @PackageWeight, @PackageDepth)
+                VALUES (@DriverID, @SenderID, @ReceiverID, @Status, @PackageWidth, @PackageHeight, @PackageWeight, @PackageDepth, @Origin, @Destination)
             `);
+
         res.status(201).json({ success: true, package: result.recordset[0] });
     } catch (error) {
         res.status(500).json({ error: 'Failed to create package', details: error.message });
     }
 });
 
+//Checks and creates a new Arduino ID with a package connected to it
+app.post('/api/arduino', async (req, res) => {
+  try {
+    const { ArduinoID, PackageID } = req.body;
 
+    // 1️⃣ Kontrollera obligatoriska fält
+    if (!ArduinoID || !PackageID) {
+      return res.status(400).json({success: false, error: 'You need both ArduinoID and PackageID' });
+    }
+
+    const pool = await getPool();
+
+    // 2️⃣ Kolla om Arduino redan finns
+    const existing = await pool.request()
+      .input('ArduinoID', sql.Int, ArduinoID)
+      .query('SELECT PackageID FROM Arduinos WHERE ArduinoID = @ArduinoID');
+
+    if (existing.recordset.length > 0) {
+      const existingPackage = existing.recordset[0].PackageID;
+      return res.status(400).json({
+        error: `Arduino already exists and is linked to PackageID: ${existingPackage}`
+      });
+    }
+
+    // 3️⃣ Lägg till ny Arduino
+    const result = await pool.request()
+      .input('ArduinoID', sql.Int, ArduinoID)
+      .input('PackageID', sql.Int, PackageID)
+      .query(`
+        INSERT INTO Arduinos (ArduinoID, PackageID)
+        OUTPUT INSERTED.*
+        VALUES (@ArduinoID, @PackageID);
+      `);
+
+    // 4️⃣ Returnera resultatet
+    res.status(201).json({
+      success: true,
+      message: 'Arduino linked to package successfully',
+      arduino: result.recordset[0]
+    });
+
+  } catch (error) {
+    console.error('Error in /api/arduino:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+//Create sensor data from array of data
 app.post('/api/sensordata', async (req, res) => {
   try {
     let data = req.body;
@@ -422,7 +494,7 @@ app.post('/api/sensordata', async (req, res) => {
     const insertedIds = [];
 
     for (const sensor of data) {
-      const { ArduinoID, GPSLatitude, GPSLongitude, Temperature, Humidity, SensorTimeStamp } = sensor;
+      const { ArduinoID, Temperature, Humidity, SensorTimeStamp } = sensor;
 
       if (!ArduinoID) {
         console.warn('Skipping invalid sensor entry (missing ArduinoID):', sensor);
@@ -432,20 +504,24 @@ app.post('/api/sensordata', async (req, res) => {
       // Skicka in värden i databasen och få tillbaka SensorDataID
       const result = await pool.request()
         .input('ArduinoID', sql.Int, ArduinoID)
-        .input('GPSLatitude', sql.Decimal(9, 6), GPSLatitude ?? null)
-        .input('GPSLongitude', sql.Decimal(9, 6), GPSLongitude ?? null)
         .input('Temperature', sql.Int, Temperature ?? null)
         .input('Humidity', sql.Int, Humidity ?? null)
         .input('SensorTimeStamp', sql.DateTime2, SensorTimeStamp ?? new Date())
         .query(`
-          INSERT INTO SensorData (ArduinoID, GPSLatitude, GPSLongitude, Temperature, Humidity, SensorTimeStamp)
+          INSERT INTO SensorData (ArduinoID, Temperature, Humidity, SensorTimeStamp)
           OUTPUT INSERTED.ArduinoID
-          VALUES (@ArduinoID, @GPSLatitude, @GPSLongitude, @Temperature, @Humidity, @SensorTimeStamp);
+          VALUES (@ArduinoID, @Temperature, @Humidity, @SensorTimeStamp);
         `);
 
       insertedIds.push(result.recordset[0].SensorDataID);
     }
-
+    //Check if there was no data inserted
+    if(!insertedIds.length > 0){
+      return res.status(400).json({
+      success: false,
+      message: `Empty data array or invalid request body`
+    });
+    }
     res.status(201).json({
       success: true,
       message: `Inserted ${insertedIds.length} sensor entr${insertedIds.length === 1 ? 'y' : 'ies'}.`
@@ -456,13 +532,6 @@ app.post('/api/sensordata', async (req, res) => {
     res.status(500).json({ error: 'Failed to create sensor data', details: error.message });
   }
 });
-
-
-
-
-
-
-
 
 // 404 hantering
 app.use((req, res) => {
