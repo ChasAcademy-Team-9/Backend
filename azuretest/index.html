@@ -200,6 +200,25 @@
             </div>
         </div>
 
+        <!-- Senders Section -->
+        <div class="section">
+            <h2>📤 Sändare (Senders) <span class="demo-badge" id="senders-badge" style="display:none">DEMO</span></h2>
+            <button class="btn" onclick="loadSenders()">🔄 Ladda sändare</button>
+            <div id="senders-content">
+                <div class="loading">Klicka "Ladda sändare" för att visa data...</div>
+            </div>
+        </div>
+
+        <!-- Receivers Section -->
+        <div class="section">
+            <h2>📥 Mottagare (Receivers) <span class="demo-badge" id="receivers-badge" style="display:none">DEMO</span>
+            </h2>
+            <button class="btn" onclick="loadReceivers()">🔄 Ladda mottagare</button>
+            <div id="receivers-content">
+                <div class="loading">Klicka "Ladda mottagare" för att visa data...</div>
+            </div>
+        </div>
+
         <!-- Status Messages -->
         <div id="status-messages"></div>
     </div>
@@ -462,6 +481,154 @@
 
             tableHTML += '</tbody></table>';
             return tableHTML;
+        }
+
+        // Load Senders with demo fallback
+        async function loadSenders() {
+            const contentDiv = document.getElementById('senders-content');
+            const badge = document.getElementById('senders-badge');
+            contentDiv.innerHTML = '<div class="loading">Laddar sändare...</div>';
+
+            if (isDemoMode) {
+                showDemoSenders(contentDiv, badge);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/senders`);
+                const data = await response.json();
+
+                if (response.ok && data.senders) {
+                    badge.style.display = 'none';
+                    if (data.senders.length === 0) {
+                        contentDiv.innerHTML = '<div class="empty-state">Inga sändare hittades</div>';
+                    } else {
+                        let tableHTML = createSendersTable(data.senders);
+                        contentDiv.innerHTML = tableHTML;
+                    }
+                } else {
+                    throw new Error('API error');
+                }
+            } catch (error) {
+                showDemoSenders(contentDiv, badge);
+            }
+        }
+
+        // Create senders table HTML
+        function createSendersTable(senders) {
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Förnamn</th>
+                            <th>Efternamn</th>
+                            <th>Användarnamn</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            senders.forEach(sender => {
+                tableHTML += `
+                    <tr>
+                        <td>${sender.SenderID}</td>
+                        <td>${sender.FirstName}</td>
+                        <td>${sender.LastName}</td>
+                        <td>${sender.UserName}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += '</tbody></table>';
+            return tableHTML;
+        }
+
+        // Show demo senders
+        function showDemoSenders(contentDiv, badge) {
+            badge.style.display = 'inline';
+            const demoSenders = [
+                { SenderID: 1, FirstName: 'Johan', LastName: 'Svensson', UserName: 'johan.s' },
+                { SenderID: 2, FirstName: 'Karin', LastName: 'Nilsson', UserName: 'karin.n' },
+                { SenderID: 3, FirstName: 'Peter', LastName: 'Berg', UserName: 'peter.b' }
+            ];
+
+            contentDiv.innerHTML = createSendersTable(demoSenders);
+        }
+
+        // Load Receivers with demo fallback
+        async function loadReceivers() {
+            const contentDiv = document.getElementById('receivers-content');
+            const badge = document.getElementById('receivers-badge');
+            contentDiv.innerHTML = '<div class="loading">Laddar mottagare...</div>';
+
+            if (isDemoMode) {
+                showDemoReceivers(contentDiv, badge);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/receivers`);
+                const data = await response.json();
+
+                if (response.ok && data.receivers) {
+                    badge.style.display = 'none';
+                    if (data.receivers.length === 0) {
+                        contentDiv.innerHTML = '<div class="empty-state">Inga mottagare hittades</div>';
+                    } else {
+                        let tableHTML = createReceiversTable(data.receivers);
+                        contentDiv.innerHTML = tableHTML;
+                    }
+                } else {
+                    throw new Error('API error');
+                }
+            } catch (error) {
+                showDemoReceivers(contentDiv, badge);
+            }
+        }
+
+        // Create receivers table HTML
+        function createReceiversTable(receivers) {
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Förnamn</th>
+                            <th>Efternamn</th>
+                            <th>Adress</th>
+                            <th>Användarnamn</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            receivers.forEach(receiver => {
+                tableHTML += `
+                    <tr>
+                        <td>${receiver.ReceiverID}</td>
+                        <td>${receiver.FirstName}</td>
+                        <td>${receiver.LastName}</td>
+                        <td>${receiver.Adress || 'N/A'}</td>
+                        <td>${receiver.UserName}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += '</tbody></table>';
+            return tableHTML;
+        }
+
+        // Show demo receivers
+        function showDemoReceivers(contentDiv, badge) {
+            badge.style.display = 'inline';
+            const demoReceivers = [
+                { ReceiverID: 1, FirstName: 'Sofia', LastName: 'Karlsson', Adress: 'Storgatan 1, Stockholm', UserName: 'sofia.k' },
+                { ReceiverID: 2, FirstName: 'Anders', LastName: 'Lindberg', Adress: 'Kungsgatan 10, Göteborg', UserName: 'anders.l' },
+                { ReceiverID: 3, FirstName: 'Emma', LastName: 'Olsson', Adress: 'Vasagatan 5, Malmö', UserName: 'emma.o' }
+            ];
+
+            contentDiv.innerHTML = createReceiversTable(demoReceivers);
         }
 
         // Auto-check health on page load
