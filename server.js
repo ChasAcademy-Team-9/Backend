@@ -543,6 +543,19 @@ app.get('/api/arduino/available', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch arduinos', details: error.message });
     }
 });
+// Gets all available arduinos
+app.get('/api/arduino', async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request()
+            .query(`
+                SELECT * FROM Arduinos
+            `);
+        res.json({ success: true, arduinos: result.recordset });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch arduinos', details: error.message });
+    }
+});
 
 //Create sensor data from array of data
 app.post('/api/sensordata', async (req, res) => {
