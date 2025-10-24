@@ -7,13 +7,25 @@ const { error } = require('winston');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 const app = express();
+const cors = require('cors');
+const { config } = require('dotenv');
+const verifyToken = require('./config/authentication.js')
 
-// Koppla Swagger UI till /api-docs
+// Cors
+app.use(cors());
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Connect Swagger UI to /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// VIKTIGT: Azure tilldelar porten via miljövariabeln PORT
+// Uses Azure port or else 8080
 const port = process.env.PORT || 8080;
 
+//Logins for azure sql server:
+//Important: Fill in the .env file with login details
 const loginConfig = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -61,18 +73,6 @@ async function UserExist(UserName){
     
     return existingUser.recordset.length > 0;
 }
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// CORS
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
-  res.header("Access-Control-Allow-Headers", "Content-Type");
-  next();
-});
 
 // Singleton SQL pool
 let pool;
@@ -213,7 +213,7 @@ if(!Role || !UserName || !Password){
       if(!(result.recordset[0].Password === Password)){
         res.status(401).json({error: "Invalid password"})
       }
-      const token = jwt.sign({ id: UserName }, process.env.JWT_SECRET, { expiresIn: '24h' });
+      const token = jwt.sign({ UserName: UserName, Role: Role }, process.env.JWT_SECRET, { expiresIn: '24h' });
         res.status(200).json({ token: token, error: "You are logged in" });
   } catch (error) {
     res.status(500).json({details: error.message})
@@ -383,6 +383,34 @@ app.get('/api/packages/:id', async (req, res) => {
     }
 });
 
+app.get('/api/package/me', verifyToken, async (req, res) => {
+  try {
+    const { UserName } = req.user; // Från JWT-token
+    const pool = await getPool();
+
+    // Hämta mottagaren kopplad till användaren
+    const receiver = await pool.request()
+      .input('UserName', sql.NVarChar, UserName)
+      .query('SELECT ReceiverID FROM Receivers WHERE UserName = @UserName');
+
+    if (receiver.recordset.length === 0) {
+      return res.status(404).json({ error: 'Receiver not found' });
+    }
+
+    const receiverId = receiver.recordset[0].ReceiverID;
+
+    // Hämta alla paket som tillhör mottagaren
+    const packages = await pool.request()
+      .input('ReceiverID', sql.Int, receiverId)
+      .query('SELECT * FROM Packages WHERE ReceiverID = @ReceiverID ORDER BY PackageID DESC');
+
+    res.json({ success: true, packages: packages.recordset });
+  } catch (error) {
+    console.error('GET /api/packages/me error:', error);
+    res.status(500).json({ error: 'Failed to fetch packages', details: error.message });
+  }
+});
+
 //Gets driver by driverID
 app.get('/api/packages/driver/:driverId', async (req, res) => {
     try {
@@ -427,6 +455,29 @@ app.post('/api/packages', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: 'Failed to create package', details: error.message });
     }
+});
+
+//Update package status
+app.put('/api/package/status', async (req, res) => {
+  try {
+    const {PackageID, Status} = req.body
+  if(!PackageID || !Status){
+    return res.status(401).json({error:"You need to enter PackageID and Status"})
+  }
+  const pool = await getPool();
+  const result = await pool.request()
+            .input('PackageID', sql.Int, PackageID)
+            .input('Status', sql.VarChar, Status)
+            .query(`
+                UPDATE Packages
+                SET Status=@Status
+                WHERE PackageID=@PackageID;
+            `);
+  res.json({ message:"You change " + PackageID + " to Status: " + Status})
+  } catch (error) {
+    res.json({error})
+  }
+
 });
 
 //Checks and creates a new Arduino ID with a package connected to it
@@ -474,6 +525,36 @@ app.post('/api/arduino', async (req, res) => {
     console.error('Error in /api/arduino:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
+});
+
+// Gets all available arduinos
+app.get('/api/arduino/available', async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request()
+            .query(`
+                SELECT a.ArduinoID, a.PackageID, p.Status
+                FROM Arduinos a
+                INNER JOIN Packages p ON a.PackageID = p.PackageID
+                WHERE p.Status = 'Completed';
+            `);
+        res.json({ success: true, arduinos: result.recordset });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch arduinos', details: error.message });
+    }
+});
+// Gets all available arduinos
+app.get('/api/arduino', async (req, res) => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request()
+            .query(`
+                SELECT * FROM Arduinos
+            `);
+        res.json({ success: true, arduinos: result.recordset });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch arduinos', details: error.message });
+    }
 });
 
 //Create sensor data from array of data
