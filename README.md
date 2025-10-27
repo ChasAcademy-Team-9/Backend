@@ -68,6 +68,8 @@ When running locally: `http://localhost:8080/api-docs`
 
 Production server: `https://team9-webapp-b9f4e2g8hhfjeras.swedencentral-01.azurewebsites.net/api-docs`
 
+*Note: The production URL is configured in `swagger.json` for team development and testing.*
+
 ## 🔐 Authentication
 
 Most endpoints require JWT authentication. After logging in, include the token in your requests:
@@ -235,7 +237,8 @@ Backend/
 ├── web.config            # IIS configuration for Azure
 ├── config/
 │   └── authentication.js  # JWT verification middleware
-├── azure-sql-logging/    # Azure SQL logging module
+├── azure-sql-logging/    # Azure SQL logging module (main)
+├── Azure-SQL-Logging/    # Legacy logging configuration
 └── .github/
     └── workflows/        # CI/CD workflows
 ```
