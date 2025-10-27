@@ -587,7 +587,7 @@ app.post('/api/sensordata', async (req, res) => {
         .input('ArduinoID', sql.Int, ArduinoID)
         .input('Temperature', sql.Int, Temperature ?? null)
         .input('Humidity', sql.Int, Humidity ?? null)
-        .input('SensorTimeStamp', sql.DateTime2, SensorTimeStamp ?? new Date())
+        .input('SensorTimeStamp', sql.DateTime2, SensorTimeStamp ?? null)
         .query(`
           INSERT INTO SensorData (ArduinoID, Temperature, Humidity, SensorTimeStamp)
           OUTPUT INSERTED.ArduinoID
