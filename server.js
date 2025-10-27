@@ -214,7 +214,7 @@ if(!Role || !UserName || !Password){
         res.status(401).json({error: "Invalid password"})
       }
       const token = jwt.sign({ UserName: UserName, Role: Role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-        res.status(200).json({ token: token, error: "You are logged in" });
+        res.status(200).json({ token: token, message: "You are logged in", UserName : UserName, Role : Role });
   } catch (error) {
     res.status(500).json({details: error.message})
   
