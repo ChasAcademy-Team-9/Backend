@@ -87,7 +87,7 @@ const getPool = async () => {
 // Root endpoint
 app.get("/", (req, res) => {
   res.json({
-    message: "API körs!",
+    message: "API is online, go to /api-docs for documentation",
     status: "online",
     timestamp: new Date().toISOString(),
 
