@@ -208,13 +208,16 @@ if(!Role || !UserName || !Password){
     const result = await pool.request()
       .input('UserName', sql.VarChar, UserName)
       .input('Password', sql.VarChar, Password)
-      .query(`SELECT * FROM ${TableName} WHERE UserName = @UserName`);
+      .query(`SELECT *, ${TableId} AS UserTableID FROM ${TableName} WHERE UserName = @UserName`);
 
       if(!(result.recordset[0].Password === Password)){
         res.status(401).json({error: "Invalid password"})
       }
-      const token = jwt.sign({ UserName: UserName, Role: Role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-        res.status(200).json({ token: token, message: "You are logged in", UserName : UserName, Role : Role });
+
+      let Id = result.recordset[0].UserTableID
+
+      const token = jwt.sign({ UserName: UserName, Role: Role, ID: Id}, process.env.JWT_SECRET, { expiresIn: '24h' });
+        res.status(200).json({ token: token, message: "You are logged in", UserName : UserName, Role : Role , ID : Id});
   } catch (error) {
     res.status(500).json({details: error.message})
   
