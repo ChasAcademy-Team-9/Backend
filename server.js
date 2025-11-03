@@ -66,7 +66,7 @@ function TableExist(role){
 async function UserExist(UserName){
   const pool = await getPool();
 
-    // Kolla om användarnamnet redan finns
+    //Check if user exist in database by UserName
     const existingUser = await pool.request()
       .input('UserName', sql.VarChar, UserName)
       .query(`SELECT * FROM ${TableName} WHERE UserName = @UserName`);
@@ -79,7 +79,7 @@ let pool;
 const getPool = async () => {
   if (!pool) {
     pool = await sql.connect(loginConfig);
-    console.log("✅ Ansluten till Azure SQL Database!");
+    console.log("Ansluten till Azure SQL Database!");
   }
   return pool;
 };
@@ -87,7 +87,7 @@ const getPool = async () => {
 // Root endpoint
 app.get("/", (req, res) => {
   res.json({
-    message: "API körs!",
+    message: "API is online, go to /api-docs for documentation",
     status: "online",
     timestamp: new Date().toISOString(),
 
@@ -136,49 +136,49 @@ app.delete('/api/register', async (req, res) => {
   try {
     const { Role, UserName, Id } = req.body;
 
-    // 1️⃣ Kontrollera roll/tabell
+    //Check so the table alredy exist by role
     if (!TableExist(Role)) {
       return res.status(400).json({
         errorMessage: 'You need to choose a valid role: driver, receiver, or sender.'
       });
     }
 
-    // 2️⃣ Kontrollera att något identifierande värde finns
+    //Checks if mandatory values exists
     if (!UserName && !Id) {
       return res.status(400).json({
         errorMessage: 'You need to specify an identifier: UserName or Id.'
       });
     }
 
-    // 3️⃣ Kolla att användaren finns
+    //Checks if user exist
     if (!(await UserExist(UserName))) {
       return res.status(404).json({
         errorMessage: 'Cannot find an existing account.'
       });
     }
 
-    // 4️⃣ Skapa databasanslutning
+    //Connects to the database
     const pool = await getPool();
     let result;
 
-    // 5️⃣ Ta bort med ID om det finns
+    //Removes user if ID is defined
     if (Id != undefined) {
       result = await pool.request()
         .input('Id', sql.Int, Id)
         .query(`DELETE FROM ${TableName} WHERE ${TableId}=@Id`);
     } else {
-      // 6️⃣ Ta bort med användarnamn (OBS: måste vara parameteriserad)
+      //Removes user by UserName
       result = await pool.request()
         .input('UserName', sql.VarChar, UserName)
         .query(`DELETE FROM ${TableName} WHERE UserName=@UserName`);
     }
 
-    // 7️⃣ Om ingen rad togs bort → användaren fanns inte
+    //If no row was affected display error message
     if (result.rowsAffected[0] === 0) {
       return res.status(404).json({ errorMessage: 'User not found.' });
     }
 
-    // 8️⃣ Klart
+  
     res.status(200).json({
       success: true,
       message: `User deleted successfully from ${TableName}.`
@@ -208,13 +208,16 @@ if(!Role || !UserName || !Password){
     const result = await pool.request()
       .input('UserName', sql.VarChar, UserName)
       .input('Password', sql.VarChar, Password)
-      .query(`SELECT * FROM ${TableName} WHERE UserName = @UserName`);
+      .query(`SELECT *, ${TableId} AS UserTableID FROM ${TableName} WHERE UserName = @UserName`);
 
       if(!(result.recordset[0].Password === Password)){
         res.status(401).json({error: "Invalid password"})
       }
-      const token = jwt.sign({ UserName: UserName, Role: Role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-        res.status(200).json({ token: token, error: "You are logged in" });
+
+      let Id = result.recordset[0].UserTableID
+
+      const token = jwt.sign({ UserName: UserName, Role: Role, ID: Id}, process.env.JWT_SECRET, { expiresIn: '24h' });
+        res.status(200).json({ token: token, message: "You are logged in", UserName : UserName, Role : Role , ID : Id});
   } catch (error) {
     res.status(500).json({details: error.message})
   
@@ -296,7 +299,6 @@ app.put('/api/register', async (req, res) => {
     const pool = await getPool();
     const request = pool.request();
 
-    // WHERE clause
     let where = '';
     if (Id) {
       request.input('Id', sql.Int, Number(Id));
@@ -335,7 +337,7 @@ app.put('/api/register', async (req, res) => {
   }
 });
 
-//Shows all pacakges an every Username connected to it
+//Shows all pacakges and every Username connected to it
 app.get('/api/packages', async (req, res) => {
     try {
         const pool = await getPool();
@@ -356,7 +358,7 @@ app.get('/api/packages', async (req, res) => {
     }
 });
 
-//Search function for specifik package
+//Search function to find specifik package
 app.get('/api/packages/:id', async (req, res) => {
     try {
         const pool = await getPool();
@@ -385,31 +387,67 @@ app.get('/api/packages/:id', async (req, res) => {
 
 app.get('/api/package/me', verifyToken, async (req, res) => {
   try {
-    const { UserName } = req.user; // Från JWT-token
+    const { UserName, Role } = req.user; // Data from JWT token
     const pool = await getPool();
 
-    // Hämta mottagaren kopplad till användaren
-    const receiver = await pool.request()
-      .input('UserName', sql.NVarChar, UserName)
-      .query('SELECT ReceiverID FROM Receivers WHERE UserName = @UserName');
+    //Gets UserID connected to correct table
+    const idQuery = `
+      SELECT ${TableId} AS UserTableID
+      FROM ${TableName}
+      WHERE UserName = @UserName
+    `;
 
-    if (receiver.recordset.length === 0) {
-      return res.status(404).json({ error: 'Receiver not found' });
+    const idResult = await pool.request()
+      .input('UserName', sql.NVarChar, UserName)
+      .query(idQuery);
+
+    if (idResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'User not found in ' + TableName });
     }
 
-    const receiverId = receiver.recordset[0].ReceiverID;
+    const userId = idResult.recordset[0].UserTableID;
 
-    // Hämta alla paket som tillhör mottagaren
+    // Gets all packages info connectet to the UserID
+    const packageQuery = `
+      SELECT 
+        p.*, 
+        d.FirstName + ' ' + d.LastName AS DriverName,
+        s.FirstName + ' ' + s.LastName AS SenderName,
+        r.FirstName + ' ' + r.LastName AS ReceiverName,
+        a.ArduinoID,
+        sd.Temperature,
+        sd.Humidity,
+        sd.SensorTimeStamp AS LatestSensorReading
+      FROM Packages p
+      LEFT JOIN Drivers d ON p.DriverID = d.DriverID
+      LEFT JOIN Senders s ON p.SenderID = s.SenderID
+      LEFT JOIN Receivers r ON p.ReceiverID = r.ReceiverID
+      LEFT JOIN Arduinos a ON p.PackageID = a.PackageID
+      LEFT JOIN (
+          SELECT 
+              ArduinoID, 
+              Temperature, 
+              Humidity, 
+              SensorTimeStamp,
+              ROW_NUMBER() OVER (PARTITION BY ArduinoID ORDER BY SensorTimeStamp DESC) AS rn
+          FROM SensorData
+      ) sd ON a.ArduinoID = sd.ArduinoID AND sd.rn = 1
+      WHERE p.${TableId} = @UserId
+      ORDER BY p.PackageID DESC;
+    `;
+
     const packages = await pool.request()
-      .input('ReceiverID', sql.Int, receiverId)
-      .query('SELECT * FROM Packages WHERE ReceiverID = @ReceiverID ORDER BY PackageID DESC');
+      .input('UserId', sql.Int, userId)
+      .query(packageQuery);
 
     res.json({ success: true, packages: packages.recordset });
+
   } catch (error) {
-    console.error('GET /api/packages/me error:', error);
+    console.error('GET /api/package/me error:', error);
     res.status(500).json({ error: 'Failed to fetch packages', details: error.message });
   }
 });
+
 
 //Gets driver by driverID
 app.get('/api/packages/driver/:driverId', async (req, res) => {
@@ -485,14 +523,14 @@ app.post('/api/arduino', async (req, res) => {
   try {
     const { ArduinoID, PackageID } = req.body;
 
-    // 1️⃣ Kontrollera obligatoriska fält
+    //Check so mandatory fields
     if (!ArduinoID || !PackageID) {
       return res.status(400).json({success: false, error: 'You need both ArduinoID and PackageID' });
     }
 
     const pool = await getPool();
 
-    // 2️⃣ Kolla om Arduino redan finns
+    // Check if arduino alredy exist
     const existing = await pool.request()
       .input('ArduinoID', sql.Int, ArduinoID)
       .query('SELECT PackageID FROM Arduinos WHERE ArduinoID = @ArduinoID');
@@ -504,7 +542,7 @@ app.post('/api/arduino', async (req, res) => {
       });
     }
 
-    // 3️⃣ Lägg till ny Arduino
+    //Adds new arduino to database
     const result = await pool.request()
       .input('ArduinoID', sql.Int, ArduinoID)
       .input('PackageID', sql.Int, PackageID)
@@ -514,7 +552,7 @@ app.post('/api/arduino', async (req, res) => {
         VALUES (@ArduinoID, @PackageID);
       `);
 
-    // 4️⃣ Returnera resultatet
+    //Return the result
     res.status(201).json({
       success: true,
       message: 'Arduino linked to package successfully',
@@ -562,7 +600,7 @@ app.post('/api/sensordata', async (req, res) => {
   try {
     let data = req.body;
 
-    // Om body inte är en array, gör om till array
+    //Change the json body to a array
     if (!Array.isArray(data)) {
       data = [data];
     }
@@ -579,15 +617,15 @@ app.post('/api/sensordata', async (req, res) => {
 
       if (!ArduinoID) {
         console.warn('Skipping invalid sensor entry (missing ArduinoID):', sensor);
-        continue; // hoppa över ogiltiga rader
+        continue;
       }
 
-      // Skicka in värden i databasen och få tillbaka SensorDataID
+      //Sends sensordata to database
       const result = await pool.request()
         .input('ArduinoID', sql.Int, ArduinoID)
         .input('Temperature', sql.Int, Temperature ?? null)
         .input('Humidity', sql.Int, Humidity ?? null)
-        .input('SensorTimeStamp', sql.DateTime2, SensorTimeStamp ?? new Date())
+        .input('SensorTimeStamp', sql.DateTime2, SensorTimeStamp ?? null)
         .query(`
           INSERT INTO SensorData (ArduinoID, Temperature, Humidity, SensorTimeStamp)
           OUTPUT INSERTED.ArduinoID
@@ -614,19 +652,19 @@ app.post('/api/sensordata', async (req, res) => {
   }
 });
 
-// 404 hantering
+// 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: "Endpoint hittades inte" });
+  res.status(404).json({ error: "Endpoint couldnt be found" });
 });
 
 // Error handler
 app.use((err, req, res, next) => {
   console.error("Error:", err.message);
-  res.status(500).json({ error: "Något gick fel!", details: err.message });
+  res.status(500).json({ error: "Something went wrong!", details: err.message });
 });
 
-// Starta servern
+// Start server
 app.listen(port, "0.0.0.0", () => {
-  console.log(`Server körs på port ${port}`)
+  console.log(`Server is running on port: ${port}`)
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`)
 });
