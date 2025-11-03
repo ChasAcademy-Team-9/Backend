@@ -62,11 +62,11 @@ A comprehensive Node.js REST API for managing package deliveries, drivers, sende
 
 ## 📚 API Documentation
 
-Interactive API documentation is available at: **`/api-docs`**
+Interactive API documentation is available at: **`/docs`**
 
 When running locally: `http://localhost:8080/api-docs`
 
-Production server: `https://team9-webapp-b9f4e2g8hhfjeras.swedencentral-01.azurewebsites.net/api-docs`
+Production server: `https://team9-webapp-b9f4e2g8hhfjeras.swedencentral-01.azurewebsites.net/docs`
 
 *Note: The production URL is configured in `swagger.json` for team development and testing.*
 
