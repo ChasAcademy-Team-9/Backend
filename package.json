@@ -1,13 +1,25 @@
 {
-  "type": "module",
-  "name": "ditt-projekt",
+  "name": "azure-nodejs-api",
   "version": "1.0.0",
+  "description": "Node.js API för Azure App Service",
+  "main": "server.js",
   "scripts": {
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "prepare": "husky"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^11.0.1",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.18.1"
   },
   "devDependencies": {
-    "husky": "^9.1.7"
+    "nodemon": "^3.0.1"
   }
 }

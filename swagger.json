@@ -1,0 +1,332 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Package Management API",
+    "description": "API for managing drivers, senders, receivers, packages, arduinos, and sensor data.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://team9-webapp-b9f4e2g8hhfjeras.swedencentral-01.azurewebsites.net",
+      "description": "azure server"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "Role": { "type": "string", "example": "driver" },
+          "FirstName": { "type": "string", "example": "John" },
+          "LastName": { "type": "string", "example": "Doe" },
+          "UserName": { "type": "string", "example": "johndoe" },
+          "Password": { "type": "string", "example": "password123" }
+        },
+        "required": ["Role", "FirstName", "LastName", "UserName", "Password"]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "Role": { "type": "string", "example": "driver" },
+          "UserName": { "type": "string", "example": "johndoe" },
+          "Password": { "type": "string", "example": "password123" }
+        },
+        "required": ["Role", "UserName", "Password"]
+      },
+      "Package": {
+        "type": "object",
+        "properties": {
+          "PackageID": { "type": "integer", "example": 1 },
+          "DriverID": { "type": "integer", "example": 1 },
+          "SenderID": { "type": "integer", "example": 2 },
+          "ReceiverID": { "type": "integer", "example": 3 },
+          "Status": { "type": "string", "example": "Completed" },
+          "PackageWidth": { "type": "number", "format": "float", "example": 10.5 },
+          "PackageHeight": { "type": "number", "format": "float", "example": 20.0 },
+          "PackageWeight": { "type": "number", "format": "float", "example": 5.2 },
+          "PackageDepth": { "type": "number", "format": "float", "example": 15.0 },
+          "Origin": { "type": "string", "example": "Stockholm" },
+          "Destination": { "type": "string", "example": "Gothenburg" }
+        }
+      },
+      "Arduino": {
+        "type": "object",
+        "properties": {
+          "ArduinoID": { "type": "integer", "example": 1 },
+          "PackageID": { "type": "integer", "example": 1 },
+          "Status": { "type": "string", "example": "Completed" }
+        }
+      },
+      "SensorData": {
+        "type": "object",
+        "properties": {
+          "ArduinoID": { "type": "integer", "example": 1 },
+          "Temperature": { "type": "integer", "example": 25 },
+          "Humidity": { "type": "integer", "example": 60 },
+          "SensorTimeStamp": { "type": "string", "format": "date-time", "example": "2025-10-24T12:00:00Z" }
+        },
+        "required": ["ArduinoID"]
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    { "BearerAuth": [] }
+  ],
+  "paths": {
+    "/api/register": {
+      "post": {
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/User" } }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created successfully" },
+          "400": { "description": "Missing required fields or invalid role" },
+          "409": { "description": "User already exists" },
+          "500": { "description": "Internal server error" }
+        }
+      },
+      "delete": {
+        "summary": "Delete a user by UserName or ID",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "Role": { "type": "string", "example": "driver" },
+                  "UserName": { "type": "string", "example": "johndoe" },
+                  "Id": { "type": "integer", "example": 1 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User deleted successfully" },
+          "400": { "description": "Invalid request" },
+          "404": { "description": "User not found" },
+          "500": { "description": "Internal server error" }
+        }
+      },
+      "put": {
+        "summary": "Update user data by ID or UserName",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "TableName": { "type": "string", "example": "Drivers" },
+                  "Id": { "type": "integer", "example": 1 },
+                  "UserName": { "type": "string", "example": "johndoe" },
+                  "FirstName": { "type": "string", "example": "John" },
+                  "LastName": { "type": "string", "example": "Doe" },
+                  "NewUserName": { "type": "string", "example": "johnny" },
+                  "Password": { "type": "string", "example": "newpass123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User updated successfully" },
+          "400": { "description": "Missing required fields or no updatable fields" },
+          "404": { "description": "User not found" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/login": {
+      "post": {
+        "summary": "Login a user and get JWT token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful" },
+          "400": { "description": "Missing fields or user does not exist" },
+          "401": { "description": "Invalid password" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/packages": {
+      "get": {
+        "summary": "Get all packages with driver, sender, and receiver names",
+        "responses": {
+          "200": { "description": "List of packages" },
+          "500": { "description": "Internal server error" }
+        }
+      },
+      "post": {
+        "summary": "Create a new package",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/Package" } }
+          }
+        },
+        "responses": {
+          "201": { "description": "Package created" },
+          "400": { "description": "Missing required fields" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/packages/{id}": {
+      "get": {
+        "summary": "Get a specific package by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Package found" },
+          "404": { "description": "Package not found" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/package/me": {
+      "get": {
+        "summary": "Get packages for the logged-in receiver",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of packages for the receiver" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Receiver not found" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/packages/driver/{driverId}": {
+      "get": {
+        "summary": "Get packages assigned to a driver by DriverID",
+        "parameters": [
+          {
+            "name": "driverId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Packages found" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/package/status": {
+      "put": {
+        "summary": "Update package status",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "PackageID": { "type": "integer", "example": 1 },
+                  "Status": { "type": "string", "example": "Completed" }
+                },
+                "required": ["PackageID", "Status"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Status updated successfully" },
+          "400": { "description": "Missing fields" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/arduino": {
+      "get": {
+        "summary": "Get all arduinos",
+        "responses": {
+          "200": { "description": "List of arduinos" },
+          "500": { "description": "Internal server error" }
+        }
+      },
+      "post": {
+        "summary": "Create a new Arduino with a linked package",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ArduinoID": { "type": "integer", "example": 1 },
+                  "PackageID": { "type": "integer", "example": 1 }
+                },
+                "required": ["ArduinoID", "PackageID"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Arduino created successfully" },
+          "400": { "description": "Arduino already exists or missing fields" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/arduino/available": {
+      "get": {
+        "summary": "Get all available arduinos linked to packages with status Completed",
+        "responses": {
+          "200": { "description": "List of available arduinos" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/sensordata": {
+      "post": {
+        "summary": "Insert sensor data (single or array)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  { "$ref": "#/components/schemas/SensorData" },
+                  {
+                    "type": "array",
+                    "items": { "$ref": "#/components/schemas/SensorData" }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Sensor data inserted successfully" },
+          "400": { "description": "Empty array or invalid request body" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    }
+  }
+}
